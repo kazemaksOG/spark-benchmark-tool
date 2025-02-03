@@ -1,0 +1,40 @@
+{
+    "name": "default_run",
+    "description": "Running 5 concurrent users using the default spark settings",
+    "master": "local[2]",
+    "holdThread":  true,
+    "sparkConfig": {
+      "spark.scheduler.mode": "CUSTOM",
+      "spark.customSchedulerContainer": "UserFairSchedulerContainer"
+    },
+    "users": [
+      {
+        "user": "user4 seq",
+        "workloads": [
+          {
+            "workloadName": "job 1",
+            "inputPath": "resources/dvo3_data/overlay.dvo3/overlay.data",
+            "inputType": "PARQUET",
+            "className": "jobs.implementations.DefaultOperations",
+            "totalIterations": 3,
+            "startTime": "immediately",
+            "frequency": "PARA"
+          }
+        ]
+      },
+      {
+        "user": "user5 seq",
+        "workloads": [
+          {
+            "workloadName": "job 1",
+            "inputPath": "resources/dvo3_data/overlay.dvo3/overlay.data",
+            "inputType": "PARQUET",
+            "className": "jobs.implementations.DefaultOperations",
+            "totalIterations": 3,
+            "startTime": "immediately",
+            "frequency": "PARA"
+          }
+        ]
+      }
+    ]
+}

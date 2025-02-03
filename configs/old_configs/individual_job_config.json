@@ -1,0 +1,36 @@
+{
+  "name": "default_run",
+  "description": "Running 5 concurrent users using the default spark settings",
+  "master": "local[2]",
+  "holdThread":  true,
+  "sparkConfig": {
+  },
+  "users": [
+
+    {
+      "user": "user4 seq",
+      "workloads": [
+        {
+          "workloadName": "Long op",
+          "inputPath": "resources/resources/fhvhv_tripdata_2024-08.parquet",
+          "inputType": "PARQUET",
+          "className": "jobs.implementations.LongOperations",
+          "totalIterations": 4,
+          "startTimeMs": "4000",
+          "poissonRateInMinutes": 0,
+          "frequency": "SEQ"
+        },
+        {
+          "workloadName": "Short op",
+          "inputPath": "resources/resources/fhvhv_tripdata_2024-08.parquet",
+          "inputType": "PARQUET",
+          "className": "jobs.implementations.ShortOperation",
+          "totalIterations": 4,
+          "startTimeMs": "100",
+          "poissonRateInMinutes": 0,
+          "frequency": "SEQ"
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,122 @@
+[
+  {
+    "user": "user1 power",
+    "workloads": [
+      {
+        "workloadName": "user1 power job 1",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 40,
+        "startTimeMs": "100",
+        "poissonRateInMinutes": 0,
+        "frequency": "SEQ"
+      },
+      {
+        "workloadName": "user1 power job 2",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 40,
+        "startTimeMs": "110",
+        "poissonRateInMinutes": 0,
+        "frequency": "SEQ"
+      },
+      {
+        "workloadName": "user1 power job 3",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 40,
+        "startTimeMs": "120",
+        "poissonRateInMinutes": 0,
+        "frequency": "SEQ"
+      },
+      {
+        "workloadName": "user1 power job 4",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 40,
+        "startTimeMs": "130",
+        "poissonRateInMinutes": 0,
+        "frequency": "SEQ"
+      }
+    ]
+  },
+  {
+    "user": "user2 power",
+    "workloads": [
+      {
+        "workloadName": "user2 power job 1",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 40,
+        "startTimeMs": "200",
+        "poissonRateInMinutes": 0,
+        "frequency": "SEQ"
+      },
+      {
+        "workloadName": "user2 power job 2",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 40,
+        "startTimeMs": "210",
+        "poissonRateInMinutes": 0,
+        "frequency": "SEQ"
+      },
+      {
+        "workloadName": "user2 power job 3",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 40,
+        "startTimeMs": "220",
+        "poissonRateInMinutes": 0,
+        "frequency": "SEQ"
+      },
+      {
+        "workloadName": "user2 power job 4",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 40,
+        "startTimeMs": "230",
+        "poissonRateInMinutes": 0,
+        "frequency": "SEQ"
+      }
+    ]
+  },
+  {
+    "user": "user3 small",
+    "workloads": [
+      {
+        "workloadName": "user3 small job 1",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 4,
+        "startTimeMs": "150",
+        "poissonRateInMinutes": 20,
+        "frequency": "SEQ"
+      }
+    ]
+  },
+  {
+    "user": "user4 small",
+    "workloads": [
+      {
+        "workloadName": "user4 small job 1",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 4,
+        "startTimeMs": "250",
+        "poissonRateInMinutes": 20,
+        "frequency": "SEQ"
+      }
+    ]
+  }
+]

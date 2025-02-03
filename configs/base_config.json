@@ -1,0 +1,10 @@
+{
+  "name": "base configuration used for all benchmarks",
+  "description": "",
+  "holdThread": false,
+  "sparkConfig": {
+    "spark.eventLog.enabled":  true,
+    "spark.executor.memory": "4g"
+  },
+  "users": []
+}
