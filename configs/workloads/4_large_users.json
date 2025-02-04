@@ -10,7 +10,8 @@
         "totalIterations": 4,
         "startTimeMs": "100",
         "poissonRateInMinutes": 0,
-        "frequency": "SEQ"
+        "frequency": "SEQ",
+        "partitioning": "NONE"
       }
     ]
   },
@@ -25,7 +26,8 @@
         "totalIterations": 4,
         "startTimeMs": "200",
         "poissonRateInMinutes": 0,
-        "frequency": "SEQ"
+        "frequency": "SEQ",
+        "partitioning": "NONE"
       }
     ]
   },
@@ -40,7 +42,8 @@
         "totalIterations": 4,
         "startTimeMs": "300",
         "poissonRateInMinutes": 0,
-        "frequency": "SEQ"
+        "frequency": "SEQ",
+        "partitioning": "NONE"
       }
     ]
   },
@@ -55,7 +58,8 @@
         "totalIterations": 4,
         "startTimeMs": "400",
         "poissonRateInMinutes": 0,
-        "frequency": "SEQ"
+        "frequency": "SEQ",
+        "partitioning": "NONE"
       }
     ]
   }

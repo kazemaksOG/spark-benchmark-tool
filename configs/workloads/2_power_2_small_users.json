@@ -7,40 +7,44 @@
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
-        "totalIterations": 40,
+        "totalIterations": 10,
         "startTimeMs": "100",
         "poissonRateInMinutes": 0,
-        "frequency": "SEQ"
+        "frequency": "PARA",
+        "partitioning": "NONE"
       },
       {
         "workloadName": "user1 power job 2",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
-        "totalIterations": 40,
-        "startTimeMs": "110",
+        "totalIterations": 10,
+        "startTimeMs": "5000",
         "poissonRateInMinutes": 0,
-        "frequency": "SEQ"
+        "frequency": "PARA",
+        "partitioning": "NONE"
       },
       {
         "workloadName": "user1 power job 3",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
-        "totalIterations": 40,
-        "startTimeMs": "120",
+        "totalIterations": 10,
+        "startTimeMs": "10000",
         "poissonRateInMinutes": 0,
-        "frequency": "SEQ"
+        "frequency": "PARA",
+        "partitioning": "NONE"
       },
       {
         "workloadName": "user1 power job 4",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
-        "totalIterations": 40,
-        "startTimeMs": "130",
+        "totalIterations": 10,
+        "startTimeMs": "15000",
         "poissonRateInMinutes": 0,
-        "frequency": "SEQ"
+        "frequency": "PARA",
+        "partitioning": "NONE"
       }
     ]
   },
@@ -52,40 +56,44 @@
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
-        "totalIterations": 40,
-        "startTimeMs": "200",
+        "totalIterations": 10,
+        "startTimeMs": "150",
         "poissonRateInMinutes": 0,
-        "frequency": "SEQ"
+        "frequency": "PARA",
+        "partitioning": "NONE"
       },
       {
         "workloadName": "user2 power job 2",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
-        "totalIterations": 40,
-        "startTimeMs": "210",
+        "totalIterations": 10,
+        "startTimeMs": "5050",
         "poissonRateInMinutes": 0,
-        "frequency": "SEQ"
+        "frequency": "PARA",
+        "partitioning": "NONE"
       },
       {
         "workloadName": "user2 power job 3",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
-        "totalIterations": 40,
-        "startTimeMs": "220",
+        "totalIterations": 10,
+        "startTimeMs": "10050",
         "poissonRateInMinutes": 0,
-        "frequency": "SEQ"
+        "frequency": "PARA",
+        "partitioning": "NONE"
       },
       {
         "workloadName": "user2 power job 4",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
-        "totalIterations": 40,
-        "startTimeMs": "230",
+        "totalIterations": 10,
+        "startTimeMs": "15050",
         "poissonRateInMinutes": 0,
-        "frequency": "SEQ"
+        "frequency": "PARA",
+        "partitioning": "NONE"
       }
     ]
   },
@@ -98,9 +106,10 @@
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
         "totalIterations": 4,
-        "startTimeMs": "150",
+        "startTimeMs": "200",
         "poissonRateInMinutes": 20,
-        "frequency": "SEQ"
+        "frequency": "PARA",
+        "partitioning": "NONE"
       }
     ]
   },
@@ -113,9 +122,10 @@
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
         "totalIterations": 4,
-        "startTimeMs": "250",
+        "startTimeMs": "300",
         "poissonRateInMinutes": 20,
-        "frequency": "SEQ"
+        "frequency": "PARA",
+        "partitioning": "NONE"
       }
     ]
   }

@@ -10,17 +10,8 @@
         "totalIterations": 4,
         "startTimeMs": "100",
         "poissonRateInMinutes": 0,
-        "frequency": "SEQ"
-      },
-      {
-        "workloadName": "job_big",
-        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
-        "inputType": "PARQUET",
-        "className": "jobs.implementations.LongOperation",
-        "totalIterations": 4,
-        "startTimeMs": "2000",
-        "poissonRateInMinutes": 0,
-        "frequency": "SEQ"
+        "frequency": "SEQ",
+        "partitioning": "NONE"
       }
     ]
   }

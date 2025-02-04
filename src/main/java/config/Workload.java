@@ -20,7 +20,17 @@ enum InputType {
     TXT,
 }
 
+
+
 public class Workload implements Runnable {
+    public enum Partitioning {
+        NONE,
+        COALESCE,
+        REPARTITION,
+    }
+
+    private static final System.Logger LOGGER = System.getLogger(User.class.getName());
+
     private String workloadName;
     private String inputPath;
     private InputType inputType;
@@ -30,6 +40,7 @@ public class Workload implements Runnable {
     private long startTimeMs = 0;
     private double poissonRateInMinutes;
     private Frequency frequency;
+    private Partitioning partitioning;
 
     private long benchStartTime;
     transient SparkSession spark;
@@ -46,6 +57,13 @@ public class Workload implements Runnable {
         return results;
     }
 
+    public Partitioning getPartitioning() {
+        return partitioning;
+    }
+
+    public void setPartitioning(Partitioning partitioning) {
+        this.partitioning = partitioning;
+    }
 
     public void setSpark(SparkSession spark) {
         this.spark = spark;
@@ -125,12 +143,12 @@ public class Workload implements Runnable {
 
     public void run() {
         if(spark == null) {
-            System.err.println("No spark session defined in workload " + workloadName);
+            LOGGER.log(System.Logger.Level.ERROR,"No spark session defined in workload {}", workloadName);
             return;
         }
         ArrayList<Tuple2<Thread, Job>> jobList = new ArrayList<>();
         try {
-            Job job = (Job) Class.forName(className).getDeclaredConstructor(SparkSession.class, String.class).newInstance(spark, inputPath);
+            Job job = (Job) Class.forName(className).getDeclaredConstructor(SparkSession.class, String.class, Partitioning.class).newInstance(spark, inputPath, partitioning);
             spark.sparkContext().setLocalProperty("job.class", job.getClass().getName());
             spark.sparkContext().setJobGroup(workloadName, job.getClass().getName(), true);
 
@@ -151,6 +169,8 @@ public class Workload implements Runnable {
                 switch(frequency) {
                     case PARA -> {
                         jobThread.start();
+                        // simulate waiting for the user to do something again
+                        Thread.sleep(poissonWait.getNextWaitMillis());
                     }
                     case SEQ -> {
                         jobThread.start();

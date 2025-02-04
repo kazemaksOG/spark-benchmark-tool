@@ -7,9 +7,12 @@ import scala.Tuple2;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
-import java.util.HashMap;
+import static java.lang.System.Logger.Level.ERROR;
+import static java.lang.System.Logger.Level.INFO;
 
 public class User implements Runnable {
+    private static final System.Logger LOGGER = System.getLogger(User.class.getName());
+
     private String user;
     private ArrayList<Workload> workloads;
 
@@ -51,7 +54,7 @@ public class User implements Runnable {
     @Override
     public void run() {
         if (spark == null) {
-            System.err.println("No spark session defined for user " + user);
+            LOGGER.log(ERROR, "No spark session defined for user {}", user);
             return;
         }
 

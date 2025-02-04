@@ -1,7 +1,6 @@
 {
   "name": "base configuration used for all benchmarks",
   "description": "",
-  "master": "local[2]",
   "holdThread": false,
   "sparkConfig": {
     "spark.eventLog.enabled":  true,

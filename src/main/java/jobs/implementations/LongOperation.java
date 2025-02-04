@@ -1,5 +1,6 @@
 package jobs.implementations;
 
+import config.Workload;
 import jobs.Job;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
@@ -11,17 +12,14 @@ import static org.apache.spark.sql.functions.col;
 public class LongOperation extends Job {
 
 
-    public LongOperation(SparkSession spark, String inputPath) {
-        super(spark, inputPath);
+    public LongOperation(SparkSession spark, String inputPath, Workload.Partitioning partitioning) {
+        super(spark, inputPath, partitioning);
     }
 
 
     @Override
     public void run() {
-        measurementUnit.startMeasurement("setup_time");
-        Dataset<Row> parquetDataset = spark.read().parquet(inputPath);
-
-        measurementUnit.endMeasurement("setup_time");
+        Dataset<Row> parquetDataset = defaultParquetSetup();
 
         measurementUnit.startMeasurement("execution_time");
         Dataset<Row> mappedParquet = parquetDataset.alias("taxiA").join(parquetDataset.alias("taxiB"), col("taxiA.pickup_datetime").equalTo(col("taxiB.dropoff_datetime")));

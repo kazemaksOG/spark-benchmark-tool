@@ -1,17 +1,18 @@
 #!/bin/bash
 
-# Usage: source ./script <MASTER_URL>
+# Usage: source ./script <MASTER_URL> <RESERVATION_ID>
 
 # Env
 module load java/jdk-17
 module load prun
 
-export SPARK_HOME=/var/scratch/dkazemak/frameworks/spark-custom
+export SPARK_HOME="/var/scratch/$USER/frameworks/spark-custom"
 
 # Spark input variables
-SCHEDULER_DIR=/var/scratch/dkazemak
-JOB_DIR=/var/scratch/dkazemak/performance_test
-WORKLOAD_DIRECTORY="$JOB_DIR/configs/workloads"
+SCHEDULER_DIR="/var/scratch/$USER"
+JOB_DIR="/var/scratch/$USER/performance_test"
+WORKLOAD_DIR="$JOB_DIR/configs/workloads"
+INDIVIDUAL_WORKLOAD_DIR="$JOB_DIR/configs/individual"
 SPARK_JOB_FILE="$JOB_DIR/target/performance_test-1.0-SNAPSHOT.jar"
 DEPLOY_MODE="client"
 MAIN_CLASS="BenchRunner"  
@@ -41,8 +42,8 @@ if [ ! -d "$JOB_DIR" ]; then
 fi
 
 
-if [ ! -d "$WORKLOAD_DIRECTORY" ]; then
-    echo "Error: Directory '$WORKLOAD_DIRECTORY' does not exist."
+if [ ! -d "$WORKLOAD_DIR" ]; then
+    echo "Error: Directory '$WORKLOAD_DIR' does not exist."
     return 1
 fi
 
@@ -76,9 +77,15 @@ FIFO=(
 
 
 MASTER=$1
+RESERVATION_ID=$2
 
 if [ ! -n "$MASTER" ]; then
-    echo "No master URL provided, usage: source ./script <MASTER_URL>"
+    echo "No master URL provided, Usage: source ./script <MASTER_URL> <RESERVATION_ID>"
+    return 1
+fi
+
+if [ ! -n "$RESERVATION_ID" ]; then
+    echo "No reservation provided, Usage: source ./script <MASTER_URL> <RESERVATION_ID>"
     return 1
 fi
 
@@ -90,9 +97,9 @@ run_spark_job() {
     local config_array=$@
 
     echo "=============================================="
-    echo "Running Spark job with $scheduler_name scheduler..."
+    echo "Running Spark job with $scheduler_name scheduler and config: $file"
     echo "=============================================="
-    query="--deploy-mode $DEPLOY_MODE --master $MASTER $config_array --class $MAIN_CLASS $SPARK_JOB_FILE $file"
+    query="--deploy-mode $DEPLOY_MODE --master $MASTER $config_array --class $MAIN_CLASS $SPARK_JOB_FILE $file $scheduler_name"
     echo "running job: spark-submit $query"
     $SPARK_HOME/bin/spark-submit $query
 
@@ -105,19 +112,35 @@ run_spark_job() {
 }
 
 echo "Starting workloads"
-for file in "$WORKLOAD_DIRECTORY"/*; do
+for file in "$WORKLOAD_DIR"/*; do
     # Ensure it is a regular file
     if [ -f "$file" ]; then
         echo "running spark on $file"
         run_spark_job "CUSTOM_RANDOM" $file ${CUSTOM_RANDOM[@]}
         run_spark_job "CUSTOM_FAIR" $file ${CUSTOM_FAIR[@]}
-        run_spark_job "FAIR" $file $FAIR 
+        run_spark_job "FAIR" $file $FAIR
         run_spark_job "FIFO" $file $FIFO
     fi
 done
 
+if [ -d "$INDIVIDUAL_WORKLOAD_DIR" ]; then
+    echo "Running individual workloads from $INDIVIDUAL_WORKLOAD_DIR"
+    for file in "$INDIVIDUAL_WORKLOAD_DIR"/*; do
+        # Ensure it is a regular file
+        if [ -f "$file" ]; then
+            echo "running spark on $file"
+            run_spark_job "FIFO" $file $FIFO
+        fi
+    done
+else
+    echo "No directory for individual workloads found: $INDIVIDUAL_WORKLOAD_DIR"
+fi
 
 
 echo "=============================================="
 echo "All Spark jobs completed."
 echo "=============================================="
+
+
+echo "Killing the reservation $RESERVATION_ID"
+preserve -c $RESERVATION_ID
