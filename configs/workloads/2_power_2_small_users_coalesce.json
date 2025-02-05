@@ -1,0 +1,132 @@
+[
+  {
+    "user": "user1 power",
+    "workloads": [
+      {
+        "workloadName": "user1 power job 1",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 10,
+        "startTimeMs": "100",
+        "poissonRateInMinutes": 0,
+        "frequency": "PARA",
+        "partitioning": "NONE"
+      },
+      {
+        "workloadName": "user1 power job 2",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 10,
+        "startTimeMs": "5000",
+        "poissonRateInMinutes": 0,
+        "frequency": "PARA",
+        "partitioning": "NONE"
+      },
+      {
+        "workloadName": "user1 power job 3",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 10,
+        "startTimeMs": "10000",
+        "poissonRateInMinutes": 0,
+        "frequency": "PARA",
+        "partitioning": "NONE"
+      },
+      {
+        "workloadName": "user1 power job 4",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 10,
+        "startTimeMs": "15000",
+        "poissonRateInMinutes": 0,
+        "frequency": "PARA",
+        "partitioning": "NONE"
+      }
+    ]
+  },
+  {
+    "user": "user2 power",
+    "workloads": [
+      {
+        "workloadName": "user2 power job 1",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 10,
+        "startTimeMs": "150",
+        "poissonRateInMinutes": 0,
+        "frequency": "PARA",
+        "partitioning": "NONE"
+      },
+      {
+        "workloadName": "user2 power job 2",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 10,
+        "startTimeMs": "5050",
+        "poissonRateInMinutes": 0,
+        "frequency": "PARA",
+        "partitioning": "NONE"
+      },
+      {
+        "workloadName": "user2 power job 3",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 10,
+        "startTimeMs": "10050",
+        "poissonRateInMinutes": 0,
+        "frequency": "PARA",
+        "partitioning": "NONE"
+      },
+      {
+        "workloadName": "user2 power job 4",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 10,
+        "startTimeMs": "15050",
+        "poissonRateInMinutes": 0,
+        "frequency": "PARA",
+        "partitioning": "NONE"
+      }
+    ]
+  },
+  {
+    "user": "user3 small",
+    "workloads": [
+      {
+        "workloadName": "user3 small job 1",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 4,
+        "startTimeMs": "200",
+        "poissonRateInMinutes": 20,
+        "frequency": "PARA",
+        "partitioning": "NONE"
+      }
+    ]
+  },
+  {
+    "user": "user4 small",
+    "workloads": [
+      {
+        "workloadName": "user4 small job 1",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 4,
+        "startTimeMs": "300",
+        "poissonRateInMinutes": 20,
+        "frequency": "PARA",
+        "partitioning": "NONE"
+      }
+    ]
+  }
+]
