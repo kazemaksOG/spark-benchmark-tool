@@ -181,7 +181,7 @@ public class Workload implements Runnable {
                 }
 
                 jobList.add(new Tuple2<>(jobThread, job));
-                job = (Job) Class.forName(className).getDeclaredConstructor(SparkSession.class, String.class).newInstance(spark, inputPath);
+                job = (Job) Class.forName(className).getDeclaredConstructor(SparkSession.class, String.class, Partitioning.class).newInstance(spark, inputPath, partitioning);
             }
 
 
