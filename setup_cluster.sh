@@ -2,6 +2,16 @@
 
 # Usage: source ./script <OPTIONAL_RESERVATION_ID>
 
+
+if [ "${BASH_SOURCE[0]}" -ef "$0" ]
+then
+    echo "Hey, you should source this script, not execute it!"
+    exit 1
+fi
+
+
+
+
 # Deployer variables
 DEPLOYER_HOME="/home/$USER/das-bigdata-deployment-python3"
 TIME="00:15:00"
