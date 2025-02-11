@@ -64,16 +64,11 @@ public class BenchRunner {
 
 
         // Warm up the Spark session
-        ArrayList<Thread> warmupThreads = new ArrayList<>();
         for(Workload workload : config.getWarmup()) {
-            Thread thread = new Thread(workload);
-            thread.start();
-            warmupThreads.add(thread);
+            workload.setSpark(spark);
+            workload.run();
         }
 
-        for (Thread thread : warmupThreads) {
-            thread.join();
-        }
 
 
         ArrayList<Thread> threads = new ArrayList<>();

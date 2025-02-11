@@ -6,8 +6,7 @@
     "spark.eventLog.enabled":  true,
     "spark.executor.memory": "4g"
   },
-  "warmup": {
-    "workloads": [
+  "warmup": [
       {
         "workloadName": "warmup big",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
@@ -30,7 +29,6 @@
           "frequency": "SEQ",
           "partitioning": "NONE"
         }
-    ]
-  },
+    ],
   "users": []
 }

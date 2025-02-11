@@ -2,6 +2,7 @@ target/
 .idea/
 output.txt
 resources/
+compile.sh
 
 
 

@@ -12,10 +12,7 @@ fi
 
 
 # Env
-module load java/jdk-17
-module load prun
-
-export SPARK_HOME="/var/scratch/$USER/frameworks/spark-custom"
+source master-env.sh
 
 # Spark input variables
 SCHEDULER_DIR="/var/scratch/$USER"
