@@ -17,6 +17,7 @@ public class Config {
     private String master;
     private boolean holdThread;
     private TreeMap<String, Object> sparkConfig;
+    private ArrayList<Workload> warmup;
     private ArrayList<User> users;
 
 
@@ -31,6 +32,14 @@ public class Config {
         String json_file = new String(Files.readAllBytes(Paths.get(config_path)));
         Type listType = new TypeToken<ArrayList<User>>(){}.getType();
         return gson.fromJson(json_file, listType);
+    }
+
+    public ArrayList<Workload> getWarmup() {
+        return warmup;
+    }
+
+    public void setWarmup(ArrayList<Workload> warmup) {
+        this.warmup = warmup;
     }
 
     public boolean isHoldThread() {
@@ -81,14 +90,4 @@ public class Config {
         this.users = users;
     }
 
-    @Override
-    public String toString() {
-        return "config.Config{" +
-                "name='" + name + '\'' +
-                ", description='" + description + '\'' +
-                ", master='" + master + '\'' +
-                ", sparkConfig=" + sparkConfig +
-                ", users=" + users +
-                '}';
-    }
 }

@@ -18,6 +18,11 @@ public class User implements Runnable {
 
     private transient SparkSession spark;
 
+    public void resetBenchStartTime() {
+        for(Workload workload : workloads) {
+            workload.resetBenchStartTime();
+        }
+    }
 
     public void setSpark(SparkSession spark) {
         this.spark = spark;

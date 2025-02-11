@@ -11,7 +11,7 @@
           "startTimeMs": "100",
           "poissonRateInMinutes": 0,
           "frequency": "SEQ",
-          "partitioning": "NONE"
+          "partitioning": "COALESCE"
         }
       ]
     },
@@ -27,7 +27,7 @@
           "startTimeMs": "200",
           "poissonRateInMinutes": 0,
           "frequency": "SEQ",
-          "partitioning": "NONE"
+          "partitioning": "COALESCE"
         }
       ]
     },
@@ -43,7 +43,7 @@
           "startTimeMs": "150",
           "poissonRateInMinutes": 20,
           "frequency": "PARA",
-          "partitioning": "NONE"
+          "partitioning": "COALESCE"
         }
       ]
     },
@@ -59,7 +59,7 @@
           "startTimeMs": "250",
           "poissonRateInMinutes": 20,
           "frequency": "PARA",
-          "partitioning": "NONE"
+          "partitioning": "COALESCE"
         }
       ]
     }

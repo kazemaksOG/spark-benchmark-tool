@@ -1,6 +1,7 @@
 import com.google.gson.Gson;
 import config.Config;
 import config.User;
+import config.Workload;
 import org.apache.commons.compress.utils.FileNameUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.spark.sql.SparkSession;
@@ -60,9 +61,27 @@ public class BenchRunner {
     }
 
     private static void runUserBenchmark(SparkSession spark, Config config, String benchName) throws InterruptedException {
+
+
+        // Warm up the Spark session
+        ArrayList<Thread> warmupThreads = new ArrayList<>();
+        for(Workload workload : config.getWarmup()) {
+            Thread thread = new Thread(workload);
+            thread.start();
+            warmupThreads.add(thread);
+        }
+
+        for (Thread thread : warmupThreads) {
+            thread.join();
+        }
+
+
         ArrayList<Thread> threads = new ArrayList<>();
         // Start all users in parallel and then wait for them to finish
         for (User user : config.getUsers()) {
+            // Reset bench start times to exclude warmup time
+            user.resetBenchStartTime();
+            // Start up all user workloads
             user.setSpark(spark);
             Thread thread = new Thread(user);
             thread.start();

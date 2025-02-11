@@ -4,6 +4,7 @@ import jobs.Job;
 import org.apache.commons.lang3.NotImplementedException;
 import org.apache.spark.sql.SparkSession;
 import scala.Tuple2;
+import scala.Tuple3;
 import utils.PoissonWait;
 
 import java.lang.reflect.InvocationTargetException;
@@ -50,6 +51,10 @@ public class Workload implements Runnable {
     public Workload() {
         this.results = new HashMap<>();
         this.currentIteration = 0;
+        this.benchStartTime = System.currentTimeMillis();
+    }
+
+    public void resetBenchStartTime() {
         this.benchStartTime = System.currentTimeMillis();
     }
 
@@ -146,11 +151,20 @@ public class Workload implements Runnable {
             LOGGER.log(System.Logger.Level.ERROR,"No spark session defined in workload {}", workloadName);
             return;
         }
-        ArrayList<Tuple2<Thread, Job>> jobList = new ArrayList<>();
+        ArrayList<Tuple3<Thread, Job, Integer>> jobList = new ArrayList<>();
         try {
             Job job = (Job) Class.forName(className).getDeclaredConstructor(SparkSession.class, String.class, Partitioning.class).newInstance(spark, inputPath, partitioning);
+
             spark.sparkContext().setLocalProperty("job.class", job.getClass().getName());
-            spark.sparkContext().setJobGroup(workloadName, job.getClass().getName(), true);
+
+            // variables for setting appropriate job group
+            String userName = spark.sparkContext().getLocalProperty("user.name");
+            int jobId = 0;
+
+            // Set up poisson distribtuion for waiting
+            // if rate is 0, always returns 0
+
+            PoissonWait poissonWait = new PoissonWait(userName + workloadName, poissonRateInMinutes);
 
             // wait for the job to start
             if(startTimeMs != 0 ) {
@@ -160,11 +174,9 @@ public class Workload implements Runnable {
                 }
             }
 
-            // Set up poisson distribtuion for waiting
-            // if rate is 0, always returns 0
-            PoissonWait poissonWait = new PoissonWait(workloadName, poissonRateInMinutes);
-
             while(!noMoreJobs()) {
+                // Adjust the job group for each iteration
+                spark.sparkContext().setJobGroup(userName + "_" + workloadName + "_" + jobId, "Job group beloning to user", true);
                 Thread jobThread = new Thread(job);
                 switch(frequency) {
                     case PARA -> {
@@ -180,8 +192,9 @@ public class Workload implements Runnable {
                     }
                 }
 
-                jobList.add(new Tuple2<>(jobThread, job));
+                jobList.add(new Tuple3<>(jobThread, job, jobId));
                 job = (Job) Class.forName(className).getDeclaredConstructor(SparkSession.class, String.class, Partitioning.class).newInstance(spark, inputPath, partitioning);
+                jobId++;
             }
 
 
@@ -190,12 +203,10 @@ public class Workload implements Runnable {
             throw new RuntimeException(e);
         }
 
-        int jobId = 0;
-        for(Tuple2<Thread, Job> job : jobList) {
+        for(Tuple3<Thread, Job, Integer> job : jobList) {
             try {
-                job._1.join();
-                results.put(jobId, job._2.getResults());
-                jobId++;
+                job._1().join();
+                results.put(job._3(), job._2().getResults());
             } catch (InterruptedException e) {
                 throw new RuntimeException(e);
             }
