@@ -1,6 +1,6 @@
 [
   {
-    "user": "user1 big",
+    "user": "user1_big",
     "workloads": [
       {
         "workloadName": "job 1",
@@ -16,7 +16,7 @@
     ]
   },
   {
-    "user": "user2 big",
+    "user": "user2_big",
     "workloads": [
       {
         "workloadName": "job 1",
@@ -32,7 +32,7 @@
     ]
   },
   {
-    "user": "user3 big",
+    "user": "user3_big",
     "workloads": [
       {
         "workloadName": "job 1",
@@ -48,7 +48,7 @@
     ]
   },
   {
-    "user": "user4 big",
+    "user": "user4_big",
     "workloads": [
       {
         "workloadName": "job 1",

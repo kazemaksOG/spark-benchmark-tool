@@ -176,7 +176,9 @@ public class Workload implements Runnable {
 
             while(!noMoreJobs()) {
                 // Adjust the job group for each iteration
-                spark.sparkContext().setJobGroup(userName + "_" + workloadName + "_" + jobId, "Job group beloning to user", true);
+                spark.sparkContext().setJobGroup(
+                        userName + "_" + workloadName + "_" + jobId,
+                        userName + " performing: " + workloadName + "_" + jobId, true);
                 Thread jobThread = new Thread(job);
                 switch(frequency) {
                     case PARA -> {

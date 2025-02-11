@@ -1,9 +1,9 @@
 [
   {
-    "user": "user1 power",
+    "user": "user1_power",
     "workloads": [
       {
-        "workloadName": "user1 power job 1",
+        "workloadName": "power_job1",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -14,7 +14,7 @@
         "partitioning": "COALESCE"
       },
       {
-        "workloadName": "user1 power job 2",
+        "workloadName": "power_job2",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -25,7 +25,7 @@
         "partitioning": "COALESCE"
       },
       {
-        "workloadName": "user1 power job 3",
+        "workloadName": "power_job3",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -36,7 +36,7 @@
         "partitioning": "COALESCE"
       },
       {
-        "workloadName": "user1 power job 4",
+        "workloadName": "power_job4",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -49,10 +49,10 @@
     ]
   },
   {
-    "user": "user2 power",
+    "user": "user2_power",
     "workloads": [
       {
-        "workloadName": "user2 power job 1",
+        "workloadName": "power_job1",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -63,7 +63,7 @@
         "partitioning": "COALESCE"
       },
       {
-        "workloadName": "user2 power job 2",
+        "workloadName": "power_job2",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -74,7 +74,7 @@
         "partitioning": "COALESCE"
       },
       {
-        "workloadName": "user2 power job 3",
+        "workloadName": "power_job3",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -85,7 +85,7 @@
         "partitioning": "COALESCE"
       },
       {
-        "workloadName": "user2 power job 4",
+        "workloadName": "power_job4",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -98,10 +98,10 @@
     ]
   },
   {
-    "user": "user3 small",
+    "user": "user3_small",
     "workloads": [
       {
-        "workloadName": "user3 small job 1",
+        "workloadName": "small_job",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -114,10 +114,10 @@
     ]
   },
   {
-    "user": "user4 small",
+    "user": "user4_small",
     "workloads": [
       {
-        "workloadName": "user4 small job 1",
+        "workloadName": "small_job",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
