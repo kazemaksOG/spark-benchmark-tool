@@ -1,9 +1,15 @@
 target/
 .idea/
+
+# auxiliary files for my own setup
 output.txt
-resources/
 compile.sh
 
+# resources are too large to put on gitlab
+resources/
 
+# tpc-ds and tpc-h tools are licensed, so can't add them here
+tpc-ds-tools
 
-
+# logs and outputs gather from runs
+results/data
