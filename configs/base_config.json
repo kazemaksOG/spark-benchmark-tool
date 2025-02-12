@@ -4,6 +4,8 @@
   "holdThread": false,
   "sparkConfig": {
     "spark.eventLog.enabled":  true,
+    "spark.driver.cores": 8,
+    "spark.cores.max": "32",
     "spark.executor.memory": "4g"
   },
   "warmup": [
