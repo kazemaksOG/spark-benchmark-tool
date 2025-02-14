@@ -15,11 +15,11 @@ fi
 source master-env.sh
 
 # Spark input variables
-SCHEDULER_DIR="/var/scratch/$USER"
-JOB_DIR="/var/scratch/$USER/performance_test"
-WORKLOAD_DIR="$JOB_DIR/configs/workloads"
-INDIVIDUAL_WORKLOAD_DIR="$JOB_DIR/configs/individual"
-SPARK_JOB_FILE="$JOB_DIR/target/performance_test-1.0-SNAPSHOT.jar"
+PROJECT_DIR="/var/scratch/$USER/performance_test"
+SCHEDULER_DIR="$PROJECT_DIR/schedulers"
+WORKLOAD_DIR="$PROJECT_DIR/configs/workloads"
+INDIVIDUAL_WORKLOAD_DIR="$PROJECT_DIR/configs/individual"
+SPARK_JOB_FILE="$PROJECT_DIR/target/performance_test-1.0-SNAPSHOT.jar"
 DEPLOY_MODE="client"
 MAIN_CLASS="BenchRunner"  
 
@@ -42,8 +42,8 @@ if [ ! -d "$SCHEDULER_DIR" ]; then
    return 1
 fi
 
-if [ ! -d "$JOB_DIR" ]; then
-   echo "'$JOB_DIR' directory does not exist"
+if [ ! -d "$PROJECT_DIR" ]; then
+   echo "'$PROJECT_DIR' directory does not exist"
    return 1
 fi
 
@@ -58,10 +58,12 @@ if [ ! -f "$SPARK_JOB_FILE" ]; then
     return 1
 fi
 
-
-
-
 # scheduler configs
+CUSTOM_SHORT=(
+    "--conf spark.scheduler.mode=CUSTOM"
+    "--conf spark.customSchedulerContainer=ShortestFirstSchedulerContainer"
+    "--conf spark.driver.extraClassPath=$SCHEDULER_DIR/ShortestFirstScheduler/target/ShortestFirstScheduler-1.0-SNAPSHOT.jar"
+)
 CUSTOM_FAIR=(
     "--conf spark.scheduler.mode=CUSTOM"
     "--conf spark.customSchedulerContainer=UserFairSchedulerContainer"
@@ -122,6 +124,7 @@ for file in "$WORKLOAD_DIR"/*; do
     # Ensure it is a regular file
     if [ -f "$file" ]; then
         echo "running spark on $file"
+        run_spark_job "CUSTOM_SHORT" $file ${CUSTOM_SHORT[@]}
         run_spark_job "CUSTOM_RANDOM" $file ${CUSTOM_RANDOM[@]}
         run_spark_job "CUSTOM_FAIR" $file ${CUSTOM_FAIR[@]}
         run_spark_job "FAIR" $file $FAIR

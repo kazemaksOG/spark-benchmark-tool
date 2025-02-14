@@ -105,10 +105,13 @@ public class BenchRunner {
 
 
         // Warm up the Spark session
-        for(Workload workload : config.getWarmup()) {
-            workload.setSpark(spark);
-            workload.run();
+        if( config.getWarmup() != null) {
+            for(Workload workload : config.getWarmup()) {
+                workload.setSpark(spark);
+                workload.run();
+            }
         }
+
 
 
 
