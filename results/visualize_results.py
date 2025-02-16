@@ -24,9 +24,11 @@ EXECUTOR_AMOUNT = 8
 CORES_PER_EXEC = 4
 
 # result directories
-RUN_PATH="./performance_test_2/performance_test/target"
+RUN_PATH="./data/performance_test_2/performance_test/target"
 BENCH_PATH=f"{RUN_PATH}/bench_outputs"
 BASE_BENCH_PATH=f"{RUN_PATH}/bench_outputs/base"
+
+# history server address
 APPS_URL="http://localhost:18080/api/v1/applications"
 
 
@@ -99,6 +101,10 @@ class Benchmark:
         self.users = users
         self.get_event_data()
 
+    def get_cpu_time(self):
+        return sum([execution_time.total_time for user in self.users for jobgroup in user.jobgroups for execution_time in jobgroup.executor_load])
+
+
 
 
     def get_event_data(self):
@@ -170,6 +176,7 @@ class Execution:
         self.ex_type = ex_type 
         self.start = start_s 
         self.end = end_s
+        self.total_time = end_s - start_s
         self.stage_id = stage_id
 
 
@@ -423,11 +430,26 @@ def compare_all(benches, scheduler="", partitioning="", config="" ):
         if scheduler in bench.scheduler and partitioning in bench.partitioning and config in bench.config:
 
 
+            all_workloads = [workload for user in bench.users for workload in user.workload_metrics]
 
             # track execution time
-            start_time = min((workload.start_time for user in bench.users for workload in user.workload_metrics))
-            end_time = max((workload.end_time for user in bench.users for workload in user.workload_metrics))
+            start_time = min(workload.start_time for workload in all_workloads) - 3600 # different timezone
+            end_time = max(workload.end_time for workload in all_workloads) - 3600 # different timezones
+
+            # start_time_group = min(jobgroup.start for user in bench.users for jobgroup in user.jobgroups)
+            # end_time_group = max(jobgroup.end for user in bench.users for jobgroup in user.jobgroups)
+
+            # print(start_time)
+            # print(start_time_group)
+            # print(f"Diff Start: {start_time_group - start_time}" )
+            # print(f"Diff End: {end_time_group - end_time}" )
+            # print("\n")
+
+
+            # calculate becnhmark metrics
             total_time = (end_time - start_time)
+            avg_completion_time = sum(total_time for workload in all_workloads for total_time in workload.total_times) / len([total_time for workload in all_workloads for total_time in workload.total_times])         
+            cpu_utilization = bench.get_cpu_time() / (total_time * CORES_PER_EXEC * EXECUTOR_AMOUNT)
             
             # calculate some indicators
             all_slowdowns = [x for user in bench.users for slowdowns in user.slowdowns for x in slowdowns]
@@ -455,6 +477,7 @@ def compare_all(benches, scheduler="", partitioning="", config="" ):
                     tone = tuple(map(float, tone))
                     plt.plot(range(len(workload_slowdown)), workload_slowdown, color=tone ,marker='o', label=f"{user.name} ({iteration})" )
                     iteration+=1
+
                     
             unfairness = np.sqrt((unfairness_sum / len(all_slowdowns)))
 
@@ -466,6 +489,8 @@ def compare_all(benches, scheduler="", partitioning="", config="" ):
                                     slowdown_worst_10_percent,
                                     proportional_slowdown_worst_10_percent, 
                                     total_time,
+                                    avg_completion_time,
+                                    cpu_utilization,
                                     bench.peak_JVM_memory,
                                     bench.total_shuffle_read,
                                     bench.total_shuffle_write])
@@ -473,7 +498,7 @@ def compare_all(benches, scheduler="", partitioning="", config="" ):
             plt.xlabel("Iteration")
             plt.ylabel("Slowdown (s)")
             plt.legend()
-            plt.title(f"{bench.scheduler}: {bench.config}, {bench.partitioning}, unfairness={unfairness}")
+            plt.title(f"{bench.scheduler}: {bench.config}, {bench.partitioning}, cpu_utilization={cpu_utilization} unfairness={unfairness}")
             plt.show()
     df = pd.DataFrame(unfairness_rows, columns=["Config", 
                                                 "Partitioning", 
@@ -483,6 +508,8 @@ def compare_all(benches, scheduler="", partitioning="", config="" ):
                                                 "Slowdown Worst 10%",
                                                 "Proportional Worst 10%",
                                                 "Total time",
+                                                "Average complete time",
+                                                "CPU utilization",
                                                 "Peak memory",
                                                 "Shuffle reads",
                                                 "Shuffle write"])
@@ -500,7 +527,6 @@ def timeline(benches):
     for bench in benches:
 
         # track execution time
-
         start_time = min(jobgroup.start for user in bench.users for jobgroup in user.jobgroups)
         end_time = max(jobgroup.end for user in bench.users for jobgroup in user.jobgroups)
         total_time = end_time - start_time
@@ -509,6 +535,8 @@ def timeline(benches):
        # get nice colors
         cmap = plt.get_cmap("viridis", len(bench.users))
         user_colors = {user.name: cmap(i) for i, user in enumerate(bench.users)}
+        
+        # for controlling allignment
         y_postion = 0
         executor_bins_map = {}
         for i in range(EXECUTOR_AMOUNT):
@@ -585,7 +613,7 @@ def timeline(benches):
 
 
         # setup executor plot
-        axes[0].set_title(f"{bench.scheduler}: {bench.config}, {bench.partitioning}, runtime={total_time}")
+        axes[0].set_title(f"{bench.scheduler}: {bench.config}, {bench.partitioning}, utilization={bench.get_cpu_time() / (total_time * CORES_PER_EXEC * EXECUTOR_AMOUNT)} runtime={total_time}")
         axes[0].set_ylabel("Core")
         axes[0].set_ylim(CORES_PER_EXEC * EXECUTOR_AMOUNT + 1, -1)
 
@@ -640,11 +668,8 @@ if __name__ == "__main__":
         file_path = os.path.join(BENCH_PATH, filename)
         if os.path.isfile(file_path) and filename.endswith('.json'):
             scheduler, partition, config = get_human_name(filename)
-            try:
-                users = get_bench_users(file_path, base_metrics)
-                benches.append(Benchmark(scheduler, partition, config, users))
-            except Exception as e:
-                print(f"failed to parse benchmark {scheduler} {partition} {config}")
+            users = get_bench_users(file_path, base_metrics)
+            benches.append(Benchmark(scheduler, partition, config, users))
                     
 
 
