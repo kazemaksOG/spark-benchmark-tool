@@ -24,6 +24,10 @@ public class UserFairScheduler implements SchedulableBuilder {
     @Override
     public void addTaskSetManager(Schedulable manager, Properties properties) {
         String user = properties.getProperty("user.name");
+        // If user not set, set it to default
+        if (user == null) {
+            user = "DEFAULT";
+        }
         String jobType = properties.getProperty("job.class");
         Schedulable userPool = rootPool.getSchedulableByName(user);
         if (userPool == null) {

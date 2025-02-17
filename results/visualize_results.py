@@ -103,6 +103,9 @@ class Benchmark:
 
     def get_cpu_time(self):
         return sum([execution_time.total_time for user in self.users for jobgroup in user.jobgroups for execution_time in jobgroup.executor_load])
+    def get_write_ratio(self):
+        write_time = sum([execution_time.total_time for user in self.users for jobgroup in user.jobgroups for execution_time in jobgroup.executor_load if execution_time.ex_type == "WRITE"])
+        return write_time / self.get_cpu_time()
 
 
 
@@ -181,15 +184,17 @@ class Execution:
 
 
 class JobGroup:
-    def __init__(self, name, jobs):
+    def __init__(self, name, jobs, expected_runtime_s):
         self.name = name
         self.jobs = jobs
+        self.expected_runtime = expected_runtime_s
 
 
     def get_event_data(self, app_id):
 
         self.stages = []
         self.executor_load = []
+        self.task_scheduler_delays = []
         self.start = None
         self.end = None
         for job_id in self.jobs:
@@ -253,6 +258,10 @@ class JobGroup:
                         write_start_s = execution_end_s 
                         write_end_s = write_start_s + write_time_s 
                         self.executor_load.append(Execution(executor_id, "WRITE", write_start_s, write_end_s, stage_id))
+
+                        # add the scheduler delay
+                        task_scheduler_delay_s = task["schedulerDelay"] * MS_TO_S
+                        self.task_scheduler_delays.append(task_scheduler_delay_s)
 
 
                         
@@ -346,7 +355,10 @@ class User:
             self.jobgroups = []
             for jobgroup_key in user_jobgroup_map:
                 jobs = user_jobgroup_map[jobgroup_key]
-                jobgroup = JobGroup(jobgroup_key, jobs)
+
+                # Assume user only does one type of job
+                base = next((m for m in self.base_metrics if m.name == self.workload_metrics[0].name))
+                jobgroup = JobGroup(jobgroup_key, jobs, base.mean)
                 # get all jobgroup event data and then append
                 jobgroup.get_event_data(app_id)
                 self.jobgroups.append(jobgroup)
@@ -436,20 +448,18 @@ def compare_all(benches, scheduler="", partitioning="", config="" ):
             start_time = min(workload.start_time for workload in all_workloads) - 3600 # different timezone
             end_time = max(workload.end_time for workload in all_workloads) - 3600 # different timezones
 
-            # start_time_group = min(jobgroup.start for user in bench.users for jobgroup in user.jobgroups)
-            # end_time_group = max(jobgroup.end for user in bench.users for jobgroup in user.jobgroups)
+            start_time_group = min(jobgroup.start for user in bench.users for jobgroup in user.jobgroups)
+            end_time_group = max(jobgroup.end for user in bench.users for jobgroup in user.jobgroups)
 
-            # print(start_time)
-            # print(start_time_group)
-            # print(f"Diff Start: {start_time_group - start_time}" )
-            # print(f"Diff End: {end_time_group - end_time}" )
-            # print("\n")
-
+            driver_time_diviation = abs(start_time - start_time_group) + abs(end_time - end_time_group)
 
             # calculate becnhmark metrics
             total_time = (end_time - start_time)
             avg_completion_time = sum(total_time for workload in all_workloads for total_time in workload.total_times) / len([total_time for workload in all_workloads for total_time in workload.total_times])         
             cpu_utilization = bench.get_cpu_time() / (total_time * CORES_PER_EXEC * EXECUTOR_AMOUNT)
+            write_ratio = bench.get_write_ratio()
+
+            total_task_scheduler_delay = sum(delay for user in bench.users for jobgroup in user.jobgroups for delay in jobgroup.task_scheduler_delays)
             
             # calculate some indicators
             all_slowdowns = [x for user in bench.users for slowdowns in user.slowdowns for x in slowdowns]
@@ -491,6 +501,9 @@ def compare_all(benches, scheduler="", partitioning="", config="" ):
                                     total_time,
                                     avg_completion_time,
                                     cpu_utilization,
+                                    write_ratio,
+                                    driver_time_diviation,
+                                    total_task_scheduler_delay,
                                     bench.peak_JVM_memory,
                                     bench.total_shuffle_read,
                                     bench.total_shuffle_write])
@@ -510,6 +523,9 @@ def compare_all(benches, scheduler="", partitioning="", config="" ):
                                                 "Total time",
                                                 "Average complete time",
                                                 "CPU utilization",
+                                                "Proportion spent writing",
+                                                "Driver time diviation",
+                                                "Total task scheduler delay",
                                                 "Peak memory",
                                                 "Shuffle reads",
                                                 "Shuffle write"])
@@ -578,6 +594,9 @@ def timeline(benches):
                 axes[1].add_patch(patches.Rectangle(
                     (start_offset ,jobgroup_offset), jobgroup_width, jobgroup_height, color=base_color, alpha=0.4, label=f"Jobgroup {jobgroup.name}"
                 ))
+
+                jobgroup_expected_endtime = start_offset + jobgroup.expected_runtime
+                axes[1].plot([jobgroup_expected_endtime, jobgroup_expected_endtime], [jobgroup_offset, jobgroup_offset + jobgroup_height],alpha=0.5, color='red', linestyle="--", linewidth=1)
 
                 for stage in stage_bins.subbins:
 
