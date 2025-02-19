@@ -11,15 +11,21 @@ fi
 # Env
 source master-env.sh
 
-# Spark input variables
+
+# spark configs
+DEPLOY_MODE="client"
+MAIN_CLASS="BenchRunner"
+ITERATIONS=1
+
+# Paths
 PROJECT_DIR="/var/scratch/$USER/performance_test"
 SCHEDULER_DIR="$PROJECT_DIR/schedulers"
-WORKLOAD_DIR="$PROJECT_DIR/configs/workloads"
-# INDIVIDUAL_WORKLOAD_DIR="$PROJECT_DIR/configs/individual"
 SPARK_JOB_FILE="$PROJECT_DIR/target/performance_test-1.0-SNAPSHOT.jar"
-DEPLOY_MODE="client"
-MAIN_CLASS="BenchRunner"  
-ITERATIONS=1
+
+WORKLOAD_DIR="$PROJECT_DIR/configs/workloads"
+INDIVIDUAL_WORKLOAD_DIR="$PROJECT_DIR/configs/individual"
+COALESCE_WORKLOAD_DIR="$PROJECT_DIR/configs/coalesce"
+RUN_AQE=1
 
 
 # checking for correct input varibales
@@ -107,6 +113,9 @@ run_spark_job() {
     fi
 }
 
+echo "Setting up default config"
+cp "./config/base_DAS5_config.json" "./configs/base_config.json"
+
 echo "Starting workloads"
 for file in "$WORKLOAD_DIR"/*; do
     # Ensure it is a regular file
@@ -134,6 +143,44 @@ if [ -d "$INDIVIDUAL_WORKLOAD_DIR" ]; then
 else
     echo "No directory for individual workloads found: $INDIVIDUAL_WORKLOAD_DIR"
 fi
+
+if [ -d "$COALESCE_WORKLOAD_DIR" ]; then
+    echo "Running coalesce workloads from $COALESCE_WORKLOAD_DIR"
+    for file in "$COALESCE_WORKLOAD_DIR"/*; do
+        if [ -f "$file" ]; then
+            echo "running spark on $file"
+            for key in "${!SCHEDULERS[@]}"; do
+                echo "Running with scheduler: $key"
+                for i in $(seq 1 "$ITERATIONS"); do
+                    echo "Iteration: $i"
+                    run_spark_job "$key" "$file" ${SCHEDULERS[$key]}
+                done
+            done
+        fi
+    done
+else
+    echo "No directory for individual workloads found: $COALESCE_WORKLOAD_DIR"
+fi
+
+if [ "$RUN_AQE" -eq 1 ]; then
+  echo "Setting up AQE config"
+  cp "./config/base_AQE_config.json" "./configs/base_config.json"
+  for file in "$WORKLOAD_DIR"/*; do
+      # Ensure it is a regular file
+      if [ -f "$file" ]; then
+          echo "running spark on $file"
+          for key in "${!SCHEDULERS[@]}"; do
+              echo "Running with scheduler: $key"
+              for i in $(seq 1 "$ITERATIONS"); do
+                  echo "Iteration: $i"
+                  run_spark_job "$key" "$file" ${SCHEDULERS[$key]}
+              done
+          done
+      fi
+  done
+fi
+
+
 
 
 echo "=============================================="
