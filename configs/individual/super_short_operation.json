@@ -3,7 +3,7 @@
     "user": "user1 ",
     "workloads": [
       {
-        "workloadName": "job_small",
+        "workloadName": "supershort_job",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.SuperShortOperation",

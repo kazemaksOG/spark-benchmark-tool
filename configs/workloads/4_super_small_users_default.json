@@ -1,9 +1,9 @@
 [
   {
-    "user": "user1_big",
+    "user": "user1_supersmall",
     "workloads": [
       {
-        "workloadName": "job 1",
+        "workloadName": "supershort_job",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.SuperShortOperation",
@@ -17,10 +17,10 @@
     ]
   },
   {
-    "user": "user2_big",
+    "user": "user2_supersmall",
     "workloads": [
       {
-        "workloadName": "job 1",
+        "workloadName": "supershort_job",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.SuperShortOperation",
@@ -34,10 +34,10 @@
     ]
   },
   {
-    "user": "user3_big",
+    "user": "user3_supersmall",
     "workloads": [
       {
-        "workloadName": "job 1",
+        "workloadName": "supershort_job",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.SuperShortOperation",
@@ -51,10 +51,10 @@
     ]
   },
   {
-    "user": "user4_big",
+    "user": "user4_supersmall",
     "workloads": [
       {
-        "workloadName": "job 1",
+        "workloadName": "supershort_job",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.SuperShortOperation",

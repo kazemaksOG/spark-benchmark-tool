@@ -3,7 +3,7 @@
       "user": "user1_big",
       "workloads": [
         {
-          "workloadName": "big_job",
+          "workloadName": "long_job",
           "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
           "inputType": "PARQUET",
           "className": "jobs.implementations.LongOperation",
@@ -20,7 +20,7 @@
       "user": "user2_big",
       "workloads": [
         {
-          "workloadName": "big_job",
+          "workloadName": "long_job",
           "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
           "inputType": "PARQUET",
           "className": "jobs.implementations.LongOperation",
@@ -37,7 +37,7 @@
       "user": "user3_small",
       "workloads": [
         {
-          "workloadName": "small_job",
+          "workloadName": "short_job",
           "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
           "inputType": "PARQUET",
           "className": "jobs.implementations.ShortOperation",
@@ -54,7 +54,7 @@
       "user": "user4_small",
       "workloads": [
         {
-          "workloadName": "small_job",
+          "workloadName": "short_job",
           "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
           "inputType": "PARQUET",
           "className": "jobs.implementations.ShortOperation",
