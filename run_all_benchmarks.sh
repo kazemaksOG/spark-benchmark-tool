@@ -74,10 +74,10 @@ SCHEDULERS[CUSTOM_FAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customS
 
 SCHEDULERS[CUSTOM_RANDOM]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=RandomSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/RandomScheduler/target/RandomScheduler-1.0-SNAPSHOT.jar"
 
-SCHEDULERS[FAIR]="--conf spark.scheduler.mode=FAIR"
+SCHEDULERS[DEFAULT_FAIR]="--conf spark.scheduler.mode=FAIR"
 
 
-SCHEDULERS[FIFO]="--conf spark.scheduler.mode=FIFO"
+SCHEDULERS[DEFAULT_FIFO]="--conf spark.scheduler.mode=FIFO"
 
 
 
@@ -143,7 +143,7 @@ if [ "$RUN_INDIVIDUAL" -eq 1 ]; then
             # Ensure it is a regular file
             if [ -f "$file" ]; then
                 echo "running spark on $file"
-                run_spark_job "BASE" $file ${SCHEDULERS[FIFO]}
+                run_spark_job "BASE" $file ${SCHEDULERS[DEFAULT_FIFO]}
             fi
         done
     else
