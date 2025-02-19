@@ -13,6 +13,7 @@ public class ShortestFirstScheduler implements SchedulableBuilder {
     ShortestFirstScheduler(Pool rootPool) {
         jobWeight.put("jobs.implementations.LongOperation", 10);
         jobWeight.put("jobs.implementations.ShortOperation", 3);
+        jobWeight.put("DefaultJob", 1);
         this.rootPool = rootPool;
     }
     @Override
@@ -28,6 +29,9 @@ public class ShortestFirstScheduler implements SchedulableBuilder {
     @Override
     public void addTaskSetManager(Schedulable manager, Properties properties) {
         String jobClass = properties.getProperty("job.class");
+        if (jobClass == null) {
+            jobClass = "DefaultJob";
+        }
         Schedulable jobPool = this.rootPool.getSchedulableByName(jobClass);
         if (jobPool == null) {
             int jobPriority = jobWeight.get(jobClass);
