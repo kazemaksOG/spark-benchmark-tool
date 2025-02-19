@@ -6,11 +6,14 @@ then
     exit 1
 fi
 
-
-
 # Env
 source master-env.sh
 
+# which benchmarks to run
+RUN_DEFAULT=1
+RUN_INDIVIDUAL=1
+RUN_COALESCE=1
+RUN_AQE=1
 
 # spark configs
 DEPLOY_MODE="client"
@@ -25,7 +28,7 @@ SPARK_JOB_FILE="$PROJECT_DIR/target/performance_test-1.0-SNAPSHOT.jar"
 WORKLOAD_DIR="$PROJECT_DIR/configs/workloads"
 INDIVIDUAL_WORKLOAD_DIR="$PROJECT_DIR/configs/individual"
 COALESCE_WORKLOAD_DIR="$PROJECT_DIR/configs/coalesce"
-RUN_AQE=1
+
 
 
 # checking for correct input varibales
@@ -117,36 +120,9 @@ echo "Setting up default config"
 cp "./config/base_DAS5_config.json" "./configs/base_config.json"
 
 echo "Starting workloads"
-for file in "$WORKLOAD_DIR"/*; do
-    # Ensure it is a regular file
-    if [ -f "$file" ]; then
-        echo "running spark on $file"
-        for key in "${!SCHEDULERS[@]}"; do
-            echo "Running with scheduler: $key"
-            for i in $(seq 1 "$ITERATIONS"); do 
-                echo "Iteration: $i"
-                run_spark_job "$key" "$file" ${SCHEDULERS[$key]}
-            done
-        done
-    fi
-done
-
-if [ -d "$INDIVIDUAL_WORKLOAD_DIR" ]; then
-    echo "Running individual workloads from $INDIVIDUAL_WORKLOAD_DIR"
-    for file in "$INDIVIDUAL_WORKLOAD_DIR"/*; do
+if [ "$RUN_DEFAULT" -eq 1 ]; then
+    for file in "$WORKLOAD_DIR"/*; do
         # Ensure it is a regular file
-        if [ -f "$file" ]; then
-            echo "running spark on $file"
-            run_spark_job "BASE" $file ${SCHEDULERS[FIFO]}
-        fi
-    done
-else
-    echo "No directory for individual workloads found: $INDIVIDUAL_WORKLOAD_DIR"
-fi
-
-if [ -d "$COALESCE_WORKLOAD_DIR" ]; then
-    echo "Running coalesce workloads from $COALESCE_WORKLOAD_DIR"
-    for file in "$COALESCE_WORKLOAD_DIR"/*; do
         if [ -f "$file" ]; then
             echo "running spark on $file"
             for key in "${!SCHEDULERS[@]}"; do
@@ -158,8 +134,41 @@ if [ -d "$COALESCE_WORKLOAD_DIR" ]; then
             done
         fi
     done
-else
-    echo "No directory for individual workloads found: $COALESCE_WORKLOAD_DIR"
+fi
+
+if [ "$RUN_INDIVIDUAL" -eq 1 ]; then
+    if [ -d "$INDIVIDUAL_WORKLOAD_DIR" ]; then
+        echo "Running individual workloads from $INDIVIDUAL_WORKLOAD_DIR"
+        for file in "$INDIVIDUAL_WORKLOAD_DIR"/*; do
+            # Ensure it is a regular file
+            if [ -f "$file" ]; then
+                echo "running spark on $file"
+                run_spark_job "BASE" $file ${SCHEDULERS[FIFO]}
+            fi
+        done
+    else
+        echo "No directory for individual workloads found: $INDIVIDUAL_WORKLOAD_DIR"
+    fi
+fi
+
+if [ "$RUN_COALESCE" -eq 1 ]; then
+    if [ -d "$COALESCE_WORKLOAD_DIR" ]; then
+        echo "Running coalesce workloads from $COALESCE_WORKLOAD_DIR"
+        for file in "$COALESCE_WORKLOAD_DIR"/*; do
+            if [ -f "$file" ]; then
+                echo "running spark on $file"
+                for key in "${!SCHEDULERS[@]}"; do
+                    echo "Running with scheduler: $key"
+                    for i in $(seq 1 "$ITERATIONS"); do
+                        echo "Iteration: $i"
+                        run_spark_job "$key" "$file" ${SCHEDULERS[$key]}
+                    done
+                done
+            fi
+        done
+    else
+        echo "No directory for individual workloads found: $COALESCE_WORKLOAD_DIR"
+    fi
 fi
 
 if [ "$RUN_AQE" -eq 1 ]; then
@@ -179,8 +188,6 @@ if [ "$RUN_AQE" -eq 1 ]; then
       fi
   done
 fi
-
-
 
 
 echo "=============================================="
