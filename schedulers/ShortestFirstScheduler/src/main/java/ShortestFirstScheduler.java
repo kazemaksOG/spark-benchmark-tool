@@ -13,6 +13,7 @@ public class ShortestFirstScheduler implements SchedulableBuilder {
     ShortestFirstScheduler(Pool rootPool) {
         jobWeight.put("jobs.implementations.LongOperation", 10);
         jobWeight.put("jobs.implementations.ShortOperation", 3);
+        jobWeight.put("jobs.implementations.SuperShortOperation", 3);
         jobWeight.put("DefaultJob", 1);
         this.rootPool = rootPool;
     }
@@ -34,7 +35,7 @@ public class ShortestFirstScheduler implements SchedulableBuilder {
         }
         Schedulable jobPool = this.rootPool.getSchedulableByName(jobClass);
         if (jobPool == null) {
-            int jobPriority = jobWeight.get(jobClass);
+            int jobPriority = jobWeight.getOrDefault(jobClass, 1);
             jobPool = new Pool(jobClass, SchedulingMode.FIFO(), 0, jobPriority, null);
             this.rootPool.addSchedulable(jobPool);
         }
