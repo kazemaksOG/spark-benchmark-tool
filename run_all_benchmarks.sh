@@ -117,7 +117,7 @@ run_spark_job() {
 }
 
 echo "Setting up default config"
-cp "./config/base_DAS5_config.json" "./configs/base_config.json"
+cp "./configs/base_DAS5_config.json" "./configs/base_config.json"
 
 echo "Starting workloads"
 if [ "$RUN_DEFAULT" -eq 1 ]; then
@@ -173,7 +173,7 @@ fi
 
 if [ "$RUN_AQE" -eq 1 ]; then
   echo "Setting up AQE config"
-  cp "./config/base_AQE_config.json" "./configs/base_config.json"
+  cp "./configs/base_AQE_config.json" "./configs/base_config.json"
   for file in "$WORKLOAD_DIR"/*; do
       # Ensure it is a regular file
       if [ -f "$file" ]; then
