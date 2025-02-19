@@ -18,7 +18,7 @@ source master-env.sh
 PROJECT_DIR="/var/scratch/$USER/performance_test"
 SCHEDULER_DIR="$PROJECT_DIR/schedulers"
 WORKLOAD_DIR="$PROJECT_DIR/configs/workloads"
-INDIVIDUAL_WORKLOAD_DIR="$PROJECT_DIR/configs/individual"
+# INDIVIDUAL_WORKLOAD_DIR="$PROJECT_DIR/configs/individual"
 SPARK_JOB_FILE="$PROJECT_DIR/target/performance_test-1.0-SNAPSHOT.jar"
 DEPLOY_MODE="client"
 MAIN_CLASS="BenchRunner"  
