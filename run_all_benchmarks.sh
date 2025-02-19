@@ -1,7 +1,4 @@
-#!/bin/bash
-
 # Usage: source ./script <MASTER_URL> <RESERVATION_ID>
-
 
 if [ "${BASH_SOURCE[0]}" -ef "$0" ]
 then
@@ -22,6 +19,7 @@ WORKLOAD_DIR="$PROJECT_DIR/configs/workloads"
 SPARK_JOB_FILE="$PROJECT_DIR/target/performance_test-1.0-SNAPSHOT.jar"
 DEPLOY_MODE="client"
 MAIN_CLASS="BenchRunner"  
+ITERATIONS=1
 
 
 # checking for correct input varibales
@@ -59,29 +57,19 @@ if [ ! -f "$SPARK_JOB_FILE" ]; then
 fi
 
 # scheduler configs
-CUSTOM_SHORT=(
-    "--conf spark.scheduler.mode=CUSTOM"
-    "--conf spark.customSchedulerContainer=ShortestFirstSchedulerContainer"
-    "--conf spark.driver.extraClassPath=$SCHEDULER_DIR/ShortestFirstScheduler/target/ShortestFirstScheduler-1.0-SNAPSHOT.jar"
-)
-CUSTOM_FAIR=(
-    "--conf spark.scheduler.mode=CUSTOM"
-    "--conf spark.customSchedulerContainer=UserFairSchedulerContainer"
-    "--conf spark.driver.extraClassPath=$SCHEDULER_DIR/UserFairScheduler/target/UserFairScheduler-1.0-SNAPSHOT.jar"
-)
+declare -A SCHEDULERS
 
-CUSTOM_RANDOM=(
-   "--conf spark.scheduler.mode=CUSTOM"
-   "--conf spark.customSchedulerContainer=RandomSchedulerContainer"
-   "--conf spark.driver.extraClassPath=$SCHEDULER_DIR/RandomScheduler/target/RandomScheduler-1.0-SNAPSHOT.jar"
-)
+SCHEDULERS[CUSTOM_SHORT]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=ShortestFirstSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/ShortestFirstScheduler/target/ShortestFirstScheduler-1.0-SNAPSHOT.jar"
 
-FAIR=("--conf spark.scheduler.mode=FAIR")
+SCHEDULERS[CUSTOM_FAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=UserFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/UserFairScheduler/target/UserFairScheduler-1.0-SNAPSHOT.jar"
+
+SCHEDULERS[CUSTOM_RANDOM]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=RandomSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/RandomScheduler/target/RandomScheduler-1.0-SNAPSHOT.jar"
+
+SCHEDULERS[FAIR]="--conf spark.scheduler.mode=FAIR"
 
 
-FIFO=(
-    "--conf spark.scheduler.mode=FIFO"
-)
+SCHEDULERS[FIFO]="--conf spark.scheduler.mode=FIFO"
+
 
 
 MASTER=$1
@@ -124,11 +112,13 @@ for file in "$WORKLOAD_DIR"/*; do
     # Ensure it is a regular file
     if [ -f "$file" ]; then
         echo "running spark on $file"
-        run_spark_job "CUSTOM_SHORT" $file ${CUSTOM_SHORT[@]}
-        run_spark_job "CUSTOM_RANDOM" $file ${CUSTOM_RANDOM[@]}
-        run_spark_job "CUSTOM_FAIR" $file ${CUSTOM_FAIR[@]}
-        run_spark_job "FAIR" $file $FAIR
-        run_spark_job "FIFO" $file $FIFO
+        for key in "${!SCHEDULERS[@]}"; do
+            echo "Running with scheduler: $key"
+            for i in $(seq 1 "$ITERATIONS"); do 
+                echo "Iteration: $i"
+                run_spark_job "$key" "$file" ${SCHEDULERS[$key]}
+            done
+        done
     fi
 done
 
@@ -138,7 +128,7 @@ if [ -d "$INDIVIDUAL_WORKLOAD_DIR" ]; then
         # Ensure it is a regular file
         if [ -f "$file" ]; then
             echo "running spark on $file"
-            run_spark_job "FIFO" $file $FIFO
+            run_spark_job "BASE" $file ${SCHEDULERS[FIFO]}
         fi
     done
 else
