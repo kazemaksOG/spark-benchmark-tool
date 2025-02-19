@@ -8,18 +8,19 @@ import org.apache.spark.sql.SparkSession;
 import utils.MeasurementUnit;
 
 import java.util.HashMap;
+import java.util.TreeMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public abstract class Job implements Runnable{
     protected SparkSession spark;
     protected String inputPath;
-    protected Workload.Partitioning partitioning;
+    protected TreeMap<String, String> params;
     protected MeasurementUnit measurementUnit;
 
-    public Job(SparkSession spark, String inputPath, Workload.Partitioning partitioning) {
+    public Job(SparkSession spark, String inputPath, TreeMap<String, String> params) {
         this.spark = spark;
         this.inputPath = inputPath;
-        this.partitioning = partitioning;
+        this.params = params;
         this.measurementUnit = new MeasurementUnit();
     }
 
@@ -31,26 +32,31 @@ public abstract class Job implements Runnable{
         measurementUnit.endMeasurement("setup_time");
 
         measurementUnit.startMeasurement("partitioning_time");
-        switch(partitioning) {
-            case COALESCE -> {
-                int coresPerExecutor = Integer.parseInt(spark.conf().get("spark.executor.cores", "1"));
-                if (coresPerExecutor < 1) {
-                    throw new IllegalArgumentException("The number of Cores per executor must be greater than 0");
-                }
-                parquetDataset = parquetDataset.coalesce(coresPerExecutor);
-            }
 
-            case REPARTITION -> {
-                int coresPerExecutor = Integer.parseInt(spark.conf().get("spark.executor.cores", "1"));
-                if (coresPerExecutor < 1) {
-                    throw new IllegalArgumentException("The number of Cores per executor must be greater than 0");
+        String partitioning = params.get("partitioning");
+        if (partitioning != null) {
+            switch(partitioning) {
+                case "COALESCE" -> {
+                    int coresPerExecutor = Integer.parseInt(spark.conf().get("spark.executor.cores", "1"));
+                    if (coresPerExecutor < 1) {
+                        throw new IllegalArgumentException("The number of Cores per executor must be greater than 0");
+                    }
+                    parquetDataset = parquetDataset.coalesce(coresPerExecutor);
                 }
-                parquetDataset = parquetDataset.repartition(coresPerExecutor);
-            }
-            default -> {
 
+                case "REPARTITION" -> {
+                    int coresPerExecutor = Integer.parseInt(spark.conf().get("spark.executor.cores", "1"));
+                    if (coresPerExecutor < 1) {
+                        throw new IllegalArgumentException("The number of Cores per executor must be greater than 0");
+                    }
+                    parquetDataset = parquetDataset.repartition(coresPerExecutor);
+                }
+                default -> {
+
+                }
             }
         }
+
         measurementUnit.endMeasurement("partitioning_time");
 
         return parquetDataset;

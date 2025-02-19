@@ -34,15 +34,14 @@ public class BenchRunner {
             return;
         }
         String workloadLocation = args[0];
-        String scheduler = args[1];
+        String schedulerName = args[1];
         try {
             Config config = Config.parseBase(Paths.get(BASE_CONFIG).toAbsolutePath().toString());
             DateTimeFormatter formatTime = DateTimeFormatter.ofPattern("dd-MM-yyyy_HH_mm");
             String benchName = "bench_"
-                    + scheduler
+                    + schedulerName
                     + "_"
-                    + FilenameUtils.removeExtension(FilenameUtils.getName(workloadLocation))
-                    + "_";
+                    + FilenameUtils.removeExtension(FilenameUtils.getName(workloadLocation));
             SparkSession spark = SparkSession.builder().appName(benchName)
                     .config(config.getSparkConfig())
                     .getOrCreate();
@@ -76,29 +75,25 @@ public class BenchRunner {
         // Print number of executors
         String numExecutors = conf.get("spark.executor.instances", "Dynamic");
         String coresPerExecutor = conf.get("spark.executor.cores", "Unknown");
-        System.out.println("\n### Spark Executor Information ###");
-        System.out.println("Number of Executors: " + numExecutors);
-        System.out.println("Cores per Executor: " + coresPerExecutor);
+        LOGGER.log(INFO, "\n### Spark Executor Information ###" + "\nNumber of Executors: " + numExecutors + "\nCores per Executor: " + coresPerExecutor);
 
         // Get executor details (node locations)
         Map<String, Tuple2<Object, Object>> executorInfo =
                 JavaConverters.mapAsJavaMap(sc.sc().getExecutorMemoryStatus());
 
-        System.out.println("\n### Executor Memory Status ###");
+        LOGGER.log(INFO, "\n### Executor Memory Status ###");
         for (Map.Entry<String, Tuple2<Object, Object>> entry : executorInfo.entrySet()) {
             String executorId = entry.getKey();
             long totalMemory = (long) entry.getValue()._1();
             long usedMemory = (long) entry.getValue()._2();
 
-            System.out.println("Executor: " + executorId);
-            System.out.println("  - Total Memory: " + (totalMemory / (1024 * 1024)) + " MB");
-            System.out.println("  - Used Memory: " + (usedMemory / (1024 * 1024)) + " MB");
+            LOGGER.log(INFO, "Executor: " + executorId + "\n  - Total Memory: " + (totalMemory / (1024 * 1024)) + " MB" + "\n  - Used Memory: " + (usedMemory / (1024 * 1024)) + " MB");
         }
 
 
         // Get total available cores
         int totalCores = sc.defaultParallelism();
-        System.out.println("\nTotal Available Cores: " + totalCores);
+        LOGGER.log(INFO, "\nTotal Available Cores: " + totalCores);
     }
 
     private static void runUserBenchmark(SparkSession spark, Config config, String benchName) throws InterruptedException {
@@ -111,9 +106,6 @@ public class BenchRunner {
                 workload.run();
             }
         }
-
-
-
 
         ArrayList<Thread> threads = new ArrayList<>();
         // Start all users in parallel and then wait for them to finish

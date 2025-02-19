@@ -11,7 +11,8 @@
         "startTimeMs": "100",
         "poissonRateInMinutes": 0,
         "frequency": "PARA",
-        "partitioning": "NONE"
+        "params": {
+        }
       },
       {
         "workloadName": "power_job2",
@@ -22,7 +23,8 @@
         "startTimeMs": "5000",
         "poissonRateInMinutes": 0,
         "frequency": "PARA",
-        "partitioning": "NONE"
+        "params": {
+        }
       },
       {
         "workloadName": "power_job3",
@@ -33,7 +35,8 @@
         "startTimeMs": "10000",
         "poissonRateInMinutes": 0,
         "frequency": "PARA",
-        "partitioning": "NONE"
+        "params": {
+        }
       },
       {
         "workloadName": "power_job4",
@@ -44,7 +47,8 @@
         "startTimeMs": "15000",
         "poissonRateInMinutes": 0,
         "frequency": "PARA",
-        "partitioning": "NONE"
+        "params": {
+        }
       }
     ]
   },
@@ -60,7 +64,8 @@
         "startTimeMs": "150",
         "poissonRateInMinutes": 0,
         "frequency": "PARA",
-        "partitioning": "NONE"
+        "params": {
+        }
       },
       {
         "workloadName": "power_job2",
@@ -71,7 +76,8 @@
         "startTimeMs": "5050",
         "poissonRateInMinutes": 0,
         "frequency": "PARA",
-        "partitioning": "NONE"
+        "params": {
+        }
       },
       {
         "workloadName": "power_job3",
@@ -82,7 +88,8 @@
         "startTimeMs": "10050",
         "poissonRateInMinutes": 0,
         "frequency": "PARA",
-        "partitioning": "NONE"
+        "params": {
+        }
       },
       {
         "workloadName": "power_job4",
@@ -93,7 +100,8 @@
         "startTimeMs": "15050",
         "poissonRateInMinutes": 0,
         "frequency": "PARA",
-        "partitioning": "NONE"
+        "params": {
+        }
       }
     ]
   },
@@ -109,7 +117,8 @@
         "startTimeMs": "200",
         "poissonRateInMinutes": 20,
         "frequency": "PARA",
-        "partitioning": "NONE"
+        "params": {
+        }
       }
     ]
   },
@@ -125,7 +134,8 @@
         "startTimeMs": "300",
         "poissonRateInMinutes": 20,
         "frequency": "PARA",
-        "partitioning": "NONE"
+        "params": {
+        }
       }
     ]
   }

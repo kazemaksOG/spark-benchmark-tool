@@ -1,0 +1,72 @@
+[
+  {
+    "user": "user1_big",
+    "workloads": [
+      {
+        "workloadName": "big_job",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.LongOperation",
+        "totalIterations": 4,
+        "startTimeMs": "100",
+        "poissonRateInMinutes": 0,
+        "frequency": "SEQ",
+        "partitioning": "COALESCE"
+      }
+    ]
+  },
+  {
+    "user": "user2_big",
+    "workloads": [
+      {
+        "workloadName": "big_job",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.LongOperation",
+        "totalIterations": 4,
+        "startTimeMs": "200",
+        "poissonRateInMinutes": 0,
+        "frequency": "SEQ",
+        "params": {
+          "partitioning": "COALESCE"
+        }
+      }
+    ]
+  },
+  {
+    "user": "user3_small",
+    "workloads": [
+      {
+        "workloadName": "small_job",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 4,
+        "startTimeMs": "150",
+        "poissonRateInMinutes": 20,
+        "frequency": "PARA",
+        "params": {
+          "partitioning": "COALESCE"
+        }
+      }
+    ]
+  },
+  {
+    "user": "user4_small",
+    "workloads": [
+      {
+        "workloadName": "small_job",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.ShortOperation",
+        "totalIterations": 4,
+        "startTimeMs": "250",
+        "poissonRateInMinutes": 20,
+        "frequency": "PARA",
+        "params": {
+          "partitioning": "COALESCE"
+        }
+      }
+    ]
+  }
+]

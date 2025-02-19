@@ -1,15 +1,16 @@
 package config;
 
+import com.google.gson.reflect.TypeToken;
 import jobs.Job;
-import org.apache.commons.lang3.NotImplementedException;
 import org.apache.spark.sql.SparkSession;
-import scala.Tuple2;
 import scala.Tuple3;
 import utils.PoissonWait;
 
 import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Type;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.TreeMap;
 
 enum Frequency {
     SEQ,
@@ -24,11 +25,6 @@ enum InputType {
 
 
 public class Workload implements Runnable {
-    public enum Partitioning {
-        NONE,
-        COALESCE,
-        REPARTITION,
-    }
 
     private static final System.Logger LOGGER = System.getLogger(User.class.getName());
 
@@ -41,7 +37,15 @@ public class Workload implements Runnable {
     private long startTimeMs = 0;
     private double poissonRateInMinutes;
     private Frequency frequency;
-    private Partitioning partitioning;
+    private TreeMap<String, String> params;
+
+    public TreeMap<String, String> getParams() {
+        return params;
+    }
+
+    public void setParams(TreeMap<String, String> params) {
+        this.params = params;
+    }
 
     private long benchStartTime;
     transient SparkSession spark;
@@ -60,14 +64,6 @@ public class Workload implements Runnable {
 
     public HashMap<Integer, HashMap<String, Long>> getResults() {
         return results;
-    }
-
-    public Partitioning getPartitioning() {
-        return partitioning;
-    }
-
-    public void setPartitioning(Partitioning partitioning) {
-        this.partitioning = partitioning;
     }
 
     public void setSpark(SparkSession spark) {
@@ -153,7 +149,7 @@ public class Workload implements Runnable {
         }
         ArrayList<Tuple3<Thread, Job, Integer>> jobList = new ArrayList<>();
         try {
-            Job job = (Job) Class.forName(className).getDeclaredConstructor(SparkSession.class, String.class, Partitioning.class).newInstance(spark, inputPath, partitioning);
+            Job job = (Job) Class.forName(className).getDeclaredConstructor(SparkSession.class, String.class, TreeMap.class).newInstance(spark, inputPath, params);
 
             spark.sparkContext().setLocalProperty("job.class", job.getClass().getName());
 
@@ -195,7 +191,7 @@ public class Workload implements Runnable {
                 }
 
                 jobList.add(new Tuple3<>(jobThread, job, jobId));
-                job = (Job) Class.forName(className).getDeclaredConstructor(SparkSession.class, String.class, Partitioning.class).newInstance(spark, inputPath, partitioning);
+                job = (Job) Class.forName(className).getDeclaredConstructor(SparkSession.class, String.class, TreeMap.class).newInstance(spark, inputPath, params);
                 jobId++;
             }
 

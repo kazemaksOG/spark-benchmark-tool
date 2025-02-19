@@ -6,14 +6,16 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 
+import java.util.TreeMap;
+
 import static org.apache.spark.sql.functions.*;
 import static org.apache.spark.sql.functions.col;
 
 public class LongOperation extends Job {
 
 
-    public LongOperation(SparkSession spark, String inputPath, Workload.Partitioning partitioning) {
-        super(spark, inputPath, partitioning);
+    public LongOperation(SparkSession spark, String inputPath, TreeMap<String, String> params) {
+        super(spark, inputPath, params);
     }
 
 
