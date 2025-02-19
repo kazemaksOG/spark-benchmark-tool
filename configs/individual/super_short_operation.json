@@ -1,0 +1,18 @@
+[
+  {
+    "user": "user1 ",
+    "workloads": [
+      {
+        "workloadName": "job_small",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.SuperShortOperation",
+        "totalIterations": 4,
+        "startTimeMs": "100",
+        "poissonRateInMinutes": 0,
+        "frequency": "SEQ",
+        "partitioning": "NONE"
+      }
+    ]
+  }
+]

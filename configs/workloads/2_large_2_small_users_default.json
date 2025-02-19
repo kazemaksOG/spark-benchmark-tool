@@ -41,9 +41,9 @@
           "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
           "inputType": "PARQUET",
           "className": "jobs.implementations.ShortOperation",
-          "totalIterations": 4,
+          "totalIterations": 6,
           "startTimeMs": "150",
-          "poissonRateInMinutes": 20,
+          "poissonRateInMinutes": 8,
           "frequency": "PARA",
           "params": {
           }
@@ -58,9 +58,9 @@
           "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
           "inputType": "PARQUET",
           "className": "jobs.implementations.ShortOperation",
-          "totalIterations": 4,
+          "totalIterations": 6,
           "startTimeMs": "250",
-          "poissonRateInMinutes": 20,
+          "poissonRateInMinutes": 8,
           "frequency": "PARA",
           "params": {
           }

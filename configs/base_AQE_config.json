@@ -24,7 +24,20 @@
       "startTimeMs": "0",
       "poissonRateInMinutes": 0,
       "frequency": "SEQ",
-      "partitioning": "NONE"
+      "params": {
+      }
+    },
+    {
+      "workloadName": "warmup supersmall",
+      "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+      "inputType": "PARQUET",
+      "className": "jobs.implementations.SuperShortOperation",
+      "totalIterations": 2,
+      "startTimeMs": "0",
+      "poissonRateInMinutes": 0,
+      "frequency": "SEQ",
+      "params": {
+      }
     },
     {
       "workloadName": "warmup small",
@@ -35,7 +48,8 @@
       "startTimeMs": "0",
       "poissonRateInMinutes": 0,
       "frequency": "SEQ",
-      "partitioning": "NONE"
+      "params": {
+      }
     }
   ],
   "users": []
