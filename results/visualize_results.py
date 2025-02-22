@@ -7,6 +7,7 @@ import statistics
 import numpy as np
 import math
 from datetime import datetime
+from copy import copy
 
 
 import random
@@ -21,7 +22,7 @@ import matplotlib.patches as patches
 EXECUTOR_AMOUNT = 8
 CORES_PER_EXEC = 4
 
-RUN_PATH="./data/performance_test_4/target"
+RUN_PATH="./data/performance_test_5/target"
 BENCH_PATH=f"{RUN_PATH}/bench_outputs"
 
 # history server address
@@ -50,6 +51,12 @@ SCHEDULERS = [
     "CUSTOM_SHORT",
     "DEFAULT_FIFO",
     "DEFAULT_FAIR",
+    "AQE_CUSTOM_FAIR",
+    "AQE_CUSTOM_RANDOM",
+    "AQE_CUSTOM_SHORT",
+    "AQE_DEFAULT_FIFO",
+    "AQE_DEFAULT_FAIR",
+
 ]
 
 CONFIGS = [
@@ -60,27 +67,38 @@ CONFIGS = [
 ]
 
 PARTITIONS = [
+    "default",
     "coalesce",
     "repartition"
 ]
 
 
+# names usually are bench_NAME_CONFIG_PARTITION
 def get_human_name(filename):
     name = ""
     partition = ""
     config = ""
 
+    index = len("bench_")
+
     for sch in SCHEDULERS:
-        if sch in filename:
+        if filename[index:].startswith(sch):
             name = sch 
             break
+
+    # move index forawrd
+    index += len(name) + len("_")
+
     for conf in CONFIGS:
-        if conf in filename:
+        if filename[index:].startswith(conf):
             config = conf
             break
 
+    # move index forawrd
+    index += len(config) + len("_")
+
     for part in PARTITIONS:
-        if part in filename:
+        if filename[index:].startswith(part):
             partition = part
             break
 
@@ -117,7 +135,7 @@ class Benchmark:
         self.scheduler = scheduler
         self.partitioning = partitioning
         self.config = config
-        self.app_name = f"{scheduler}_{config}_{partitioning}"
+        self.app_name = f"bench_{scheduler}_{config}_{partitioning}"
         self.runs = []
         self.users_template = users_template
         self.get_event_data()
@@ -133,7 +151,7 @@ class Benchmark:
         # find the jobs for data
         data = response.json()  # Convert response to JSON
 
-        app_ids = [entry["id"] for entry in data if self.app_name in entry["name"]]
+        app_ids = [entry["id"] for entry in data if entry["name"].startswith(self.app_name)]
         print(f"Found app ids for {self.app_name}:")
         print(app_ids)
         for app_id in app_ids:
@@ -280,7 +298,9 @@ class JobGroup:
             for stage_id in job_json["stageIds"]:
                 response = requests.get(f"{APPS_URL}/{app_id}/stages/{stage_id}")
                 if response.status_code != 200:
-                    raise Exception(f"Error requesting eventlog data for stage {stage_id}: {response.status_code}")
+                    print(f"Stage {stage_id} was either skipped or failed (or something else) for job {job_id}, response: {response.status_code}") 
+                    continue
+                    # raise Exception(f"Error requesting eventlog data for stage {stage_id} for job {job_id}: {response.status_code}")
                 # returns an array of one element
                 stage_json = response.json()[0]
                 if stage_json["status"] == "COMPLETE":
@@ -309,17 +329,18 @@ class JobGroup:
                         task_start_s =task_start_dt.timestamp()
                         executor_id = int(task["executorId"])
 
-                        # assume task execution is first (its not, but other times are usually negligable)
                         task_metrics = task["taskMetrics"]
+                        # get write and compute times. because other parts of execution are negligible and i had issues with allignment, execution time includes everything except writing
                         execution_time_s = task_metrics["executorRunTime"] / S_TO_MS
-                        execution_start_s = task_start_s
-                        execution_end_s = task_start_s + execution_time_s 
-                        self.executor_load.append(Execution(executor_id, "EXEC", execution_start_s, execution_end_s, stage_id))
-
-                        # write follows after execution
                         write_time_s = task_metrics["shuffleWriteMetrics"]["writeTime"] * NS_TO_S
+
+                        execution_start_s = task_start_s
+                        execution_end_s = task_start_s + execution_time_s - write_time_s
+
                         write_start_s = execution_end_s 
                         write_end_s = write_start_s + write_time_s 
+
+                        self.executor_load.append(Execution(executor_id, "EXEC", execution_start_s, execution_end_s, stage_id))
                         self.executor_load.append(Execution(executor_id, "WRITE", write_start_s, write_end_s, stage_id))
 
                         # add the scheduler delay
@@ -354,33 +375,42 @@ class Execution:
 
 
 class Bin:
-    def __init__(self, start, end, max=1, id=0, e=0.1):
+    def __init__(self, start, end, max=1, id=0, e=0.005):
         self.e = e
         self.start = start 
         self.end = end 
         self.max = max
         self.id = id
-        self.pos = 0
+        self.pos = -1
         self.subbins = []
 
     def add(self, bin_elem):
-
-        pos = self.available_pos(bin_elem)
-        # set element to non overlapping position
-        bin_elem.pos = pos
-        self.max = max(self.max, pos + 1)
         self.subbins.append(bin_elem)
 
-    def available_pos(self, other):
-        taken_pos = []
-        for bin in self.subbins:
-            if (((other.start + self.e) > bin.start and (other.start - self.e) < bin.end) or
-                ((other.end + self.e) > bin.start and (other.end - self.e) < bin.end) or
-                ((other.start - self.e) < bin.start and (other.end + self.e) > bin.end)):
-                    taken_pos.append(bin.pos)
-        
-        pos = find_closest_to_0(taken_pos)
-        return pos
+
+    def pack_subbins(self):
+        self.subbins = [bin for bin in self.subbins if bin.end - bin.start > self.e]
+        ends = copy(self.subbins)
+        n = len(self.subbins)
+        self.subbins.sort(key=lambda x: x.start)
+        ends.sort(key=lambda x: x.end)
+
+        i = 0
+        j = 0
+
+        taken_pos = set()
+        while i < n :
+
+            if self.subbins[i].start >= ends[j].end and ends[j].pos in taken_pos:
+                taken_pos.remove(ends[j].pos)
+                j += 1
+            else:
+
+                pos = find_closest_to_0(taken_pos)
+                self.subbins[i].pos = pos
+                taken_pos.add(pos)
+                self.max = self.max if self.max > len(taken_pos) else len(taken_pos)
+                i += 1
 
 
 
@@ -489,7 +519,8 @@ def unfairness(args):
                 # plot data
                 cmap = plt.get_cmap("viridis", len(run.users))
                 user_colors = {user.name: cmap(i) for i, user in enumerate(run.users)}
-                fig, ax = plt.subplots(figsize=(8,6))
+                color_array = [user_colors[user.name] for user in run.users]
+                fig, ax = plt.subplots()
                 plot_slowdowns = []
                 plot_labels = []
                 for user in run.users:
@@ -499,12 +530,18 @@ def unfairness(args):
                     plot_labels.append(f"{user.name}, {round_sig(user_unfairness, 4)}")
 
 
-                ax.boxplot(plot_slowdowns, tick_labels=plot_labels)
+                box = ax.boxplot(plot_slowdowns, tick_labels=plot_labels, patch_artist=True)
 
-                ax.set_title("User unfairness")
-                ax.set_xlabel("Categories")
-                ax.set_ylabel("Values")
-                plt.show()
+                for patch, color in zip(box['boxes'], color_array):
+                    patch.set_facecolor(color)
+
+
+                ax.set_title(f"User unfairness in:{run.app_name}")
+                ax.set_xlabel("Users")
+                ax.set_ylabel("Slowdown")
+
+                if args.show_plot:
+                    plt.show()
                 plt.close(fig)
                 
 
@@ -530,16 +567,22 @@ def unfairness(args):
 
 
         for key in plot_slowdowns:
-            fig, ax = plt.subplots(figsize=(8,6))
+            fig, ax = plt.subplots()
             slowdowns = plot_slowdowns[key]
             labels = plot_labels[key]
 
-            ax.boxplot(slowdowns, tick_labels=labels)
+            ax.boxplot(slowdowns)
 
-            ax.set_title("User slowdowns")
-            ax.set_xlabel("Run")
+            ax.set_xticks(range(1, len(labels) + 1))
+            ax.set_xticklabels(labels, rotation=90)
+            ax.set_xlabel("Configurations")
+
+
+            ax.set_title("Slowdown per configuration")
             ax.set_ylabel("Slowdown (s)")
-            plt.show()
+            plt.tight_layout()
+            if args.show_plot:
+                plt.show()
             plt.close(fig)
                 
 
@@ -577,7 +620,7 @@ def timeline(args):
                 base_color = user_colors[user.name]
                 jobgroup_bins = Bin(start_time, end_time)
                 for jobgroup in user.jobgroups:
-                    # create bins to find available positions 
+                    # create bins for executors
                     for execution in jobgroup.executor_load:
                         bin_elem = Bin(execution.start, execution.end, id=execution.stage_id)
                         bin_elem.ex_type = execution.ex_type
@@ -585,18 +628,23 @@ def timeline(args):
                         executor_bins_map[execution.executor_id].add(bin_elem)
 
 
-                    # create bins to find available position
-                    stage_bins = Bin(jobgroup.start, jobgroup.end)
+                    # create bins for stages
+                    jobgroup_bin = Bin(jobgroup.start, jobgroup.end)
                     for stage in jobgroup.stages:
-                        stage_bins.add(Bin(stage.start, stage.end, id=stage.id))
+                        jobgroup_bin.add(Bin(stage.start, stage.end, id=stage.id))
 
+                    jobgroup_bin.pack_subbins()
+                    jobgroup_bin.name = jobgroup.name
 
-                    # add jobgroup bin, to set it to an available position in the graph
-                    jobgroup_bin = Bin(jobgroup.start, jobgroup.end, stage_bins.max)
+                    # add jobgroup to its bin
                     jobgroup_bins.add(jobgroup_bin)
+                jobgroup_bins.pack_subbins()
 
-                    # calculate jobgroup offset and draw
-                    jobgroup_offset = y_postion + JOBGROUP_BIN_SIZE * jobgroup_bin.pos + JOBGROUP_BIN_DIST
+
+                # iterate over jobgroup bins and draw them
+                for jobgroup in jobgroup_bins.subbins:
+
+                    jobgroup_offset = y_postion + JOBGROUP_BIN_SIZE * jobgroup.pos + JOBGROUP_BIN_DIST
                     jobgroup_height = JOBGROUP_BIN_SIZE - 2 * JOBGROUP_BIN_DIST
                     jobgroup_width = (jobgroup.end - jobgroup.start)
 
@@ -605,13 +653,13 @@ def timeline(args):
                         (jobgroup_start_offset, jobgroup_offset), jobgroup_width, jobgroup_height, color=base_color, alpha=0.4, label=f"Jobgroup {jobgroup.name}"
                     ))
 
-                    jobgroup_expected_endtime = jobgroup_start_offset + jobgroup.expected_runtime
+                    jobgroup_expected_endtime = jobgroup_start_offset + jobgroup.end - jobgroup.start
                     axes[1].plot([jobgroup_expected_endtime, jobgroup_expected_endtime], [jobgroup_offset, jobgroup_offset + jobgroup_height],alpha=0.5, color='red', linestyle="--", linewidth=1)
 
-                    for stage in stage_bins.subbins:
+                    for stage in jobgroup.subbins:
 
                         # to center the stages, add 1, so it ignores the ones on the edges of jobgroup
-                        stage_offset = jobgroup_offset + (jobgroup_height / (stage_bins.max + 1)) * (stage.pos + 1)
+                        stage_offset = jobgroup_offset + (jobgroup_height / (jobgroup.max + 1)) * (stage.pos + 1)
                         stage_start_offset = stage.start - start_time
                         stage_end_offset = stage.end - start_time
                         axes[1].plot([stage_start_offset, stage_end_offset], [stage_offset,stage_offset], color='gray', linewidth=2)
@@ -623,9 +671,13 @@ def timeline(args):
                 # move the y position by the amount of overlapping jobgroup bins
                 y_postion+= JOBGROUP_BIN_SIZE * jobgroup_bins.max
 
+
+
+
             # draw executors
             for executor_id in executor_bins_map:
                 executor = executor_bins_map[executor_id]
+                executor.pack_subbins()
                 for execution in executor.subbins:
                     exec_width = execution.end - execution.start
                     exec_offset = CORES_PER_EXEC * executor_id + execution.pos - 0.5
@@ -660,7 +712,8 @@ def timeline(args):
 
             axes[1].grid(True, which='both', axis='x', linestyle='--', color='gray', alpha=0.5)
             fig.tight_layout()
-            plt.show()
+            if args.show_plot:
+                plt.show()
 
             filename = f"{run.scheduler}_{run.config}_{run.partitioning}" 
             fig.savefig(filename + "_user_job_timeline.png")
@@ -737,6 +790,7 @@ if __name__ == "__main__":
     parser.add_argument("--scheduler", help="Scheduler to isolate", action="store", default="")
     parser.add_argument("--config", help="Config to isolate", action="store", default="")
     parser.add_argument("--part", help="Partitioning to isolate", action="store", default="")
+    parser.add_argument("--show_plot", help="Shows the plot using matplotlib GUI", action="store_true", default=False)
 
     subparsers = parser.add_subparsers(title="Commands")
 
