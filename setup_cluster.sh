@@ -4,7 +4,7 @@
 DEPLOYER_HOME="/home/$USER/das-bigdata-deployment-python3"
 TIME="00:15:00"
 MACHINES=5
-SPARK_VERSION="custom-3.5.5"
+SPARK_VERSION="3.5.5-custom"
 
 
 if [ "${BASH_SOURCE[0]}" -ef "$0" ]
