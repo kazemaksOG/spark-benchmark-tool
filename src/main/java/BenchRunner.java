@@ -2,14 +2,14 @@ import com.google.gson.Gson;
 import config.Config;
 import config.User;
 import config.Workload;
-import org.apache.commons.compress.utils.FileNameUtils;
-import org.apache.commons.io.FilenameUtils;
 import org.apache.spark.api.java.JavaSparkContext;
+import org.apache.spark.scheduler.StageListener;
 import org.apache.spark.sql.RuntimeConfig;
 import org.apache.spark.sql.SparkSession;
 import scala.Tuple2;
 import scala.collection.JavaConverters;
 
+import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
@@ -41,11 +41,15 @@ public class BenchRunner {
             String benchName = "bench_"
                     + schedulerName
                     + "_"
-                    + FilenameUtils.removeExtension(FilenameUtils.getName(workloadLocation));
+                    + getName(workloadLocation);
             SparkSession spark = SparkSession.builder().appName(benchName)
                     .config(config.getSparkConfig())
                     .getOrCreate();
             LOGGER.log(INFO, "Created spark session with app name {}", benchName);
+
+            StageListener s = new StageListener();
+            spark.sparkContext().addSparkListener(s);
+            LOGGER.log(INFO, "Listener added");
 
             String benchNameFile = benchName + LocalDateTime.now().format(formatTime) + ".json";
             // get user workloads and run them
@@ -66,6 +70,11 @@ public class BenchRunner {
             LOGGER.log(ERROR, "Error occurred while parsing or running the config:" + e.getMessage());
         }
 
+    }
+
+    private static String getName(String path) {
+        String fileName = new File(path).getName();
+        return fileName.substring(0, fileName.lastIndexOf('.'));
     }
 
     private static void log_executor_data(SparkSession spark) {

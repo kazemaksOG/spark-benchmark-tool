@@ -1,31 +1,81 @@
 
 import config.Config;
-import org.apache.commons.math3.distribution.PoissonDistribution;
-import org.apache.commons.math3.distribution.UniformRealDistribution;
+import org.apache.spark.executor.TaskMetrics;
+import org.apache.spark.scheduler.*;
 import org.apache.spark.sql.Dataset;
+
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
+import org.apache.spark.sql.execution.ui.*;
+import org.apache.spark.storage.RDDInfo;
+import scala.collection.JavaConverters;
+import scala.collection.Seq;
+import scala.collection.mutable.Map;
 import utils.PoissonWait;
-
-import java.io.IOException;
-
 import static org.apache.spark.sql.functions.*;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 //TIP To <b>Run</b> code, press <shortcut actionId="Run"/> or
 // click the <icon src="AllIcons.Actions.Execute"/> icon in the gutter.
 public class Main {
-    public static void main(String[] args) {
+
+    static class StageLis extends SparkListener {
+        public ArrayList<Integer> list = new ArrayList<>();
+        @Override
+        public void onStageCompleted(SparkListenerStageCompleted stageCompleted) {
+            System.out.println("Stage completed: " + stageCompleted.stageInfo().stageId());
+            list.add(stageCompleted.stageInfo().stageId());
+        }
+        @Override
+        public void onStageSubmitted(SparkListenerStageSubmitted stageSubmitted) {
+            System.out.println("########################## Stage submitted: " + stageSubmitted.stageInfo().stageId());
+            System.out.println(stageSubmitted.stageInfo().name());
+            System.out.println(stageSubmitted.stageInfo().numTasks());
+            System.out.println( stageSubmitted.stageInfo().details());
+            System.out.println( stageSubmitted.stageInfo().parentIds());
+            String job = stageSubmitted.properties().getProperty("job.class");;
+            System.out.println(job);
+            TaskMetrics taskMetrics = stageSubmitted.stageInfo().taskMetrics();
+            if (taskMetrics != null) {
+                System.out.println(taskMetrics.executorRunTime());
+            } else {
+                System.out.println("No task metrics");
+            }
+            Seq<RDDInfo> scalaSeq = stageSubmitted.stageInfo().rddInfos(); // Scala Seq<RDDInfo>
+            List<RDDInfo> javaList = JavaConverters.seqAsJavaList(scalaSeq);
+            for (RDDInfo info : javaList) {
+                System.out.println(info.toString());
+                System.out.println("Scope: " + info.scope().get().name());
+
+            }
+        }
+
+        @Override
+        public void onOtherEvent(SparkListenerEvent event) {
+            if (event instanceof SparkListenerSQLExecutionStart eventsql) {
+                System.out.println("########################### SQL Execution Start");
+                System.out.println(eventsql.details());
+                System.out.println(eventsql.description());
+                System.out.println(eventsql.physicalPlanDescription());
+                System.out.println(eventsql.time());
+            } else if (event instanceof SparkListenerSQLAdaptiveExecutionUpdate eventsql) {
+                System.out.println("########################### SQL Execution Update");
+                System.out.println(eventsql.physicalPlanDescription());
+            } else if (event instanceof SparkListenerSQLExecutionEnd eventsql) {
+                System.out.println("########################### SQL Execution Update");
+                System.out.println(eventsql.time());
+            }
+            // Ignore other cases
+        }
+    }
+
+
+    public static void main(String[] args) throws InterruptedException {
         //TIP Press <shortcut actionId="ShowIntentionActions"/> with your caret at the highlighted text
         // to see how IntelliJ IDEA suggests fixing it.
         System.out.printf("Hello and welcome!");
-//        PoissonWait wait = new PoissonWait("Job1", 20);
-//
-//        double acc = 0;
-//        for(int i = 0; i < 10; i++ ) {
-//            acc+= wait.getNextWaitMillis();
-//            System.out.println(acc / 1000 / 60);
-//        }
-
 
         Config config = null;
         try {
@@ -39,27 +89,24 @@ public class Main {
                 .master(config.getMaster())
                 .config(config.getSparkConfig())
                 .getOrCreate();
+        StageListener s = new StageListener();
+
+        spark.sparkContext().addSparkListener(s);
+
+//        StageLis st = new StageLis();
+//        spark.sparkContext().addSparkListener(st);
+
+        System.out.println("###############Listener added");
+        spark.sparkContext().setLocalProperty("job.class", "jobs.implementations.SuperShortOperation");
+
         Dataset<Row> parquet = spark.read().parquet("resources/fhvhv_tripdata_2024-08.parquet");
         parquet.printSchema();
+        Dataset<Row> mappedParquet = parquet.groupBy("hvfhs_license_num").agg(sum("tips")).alias("sum");
 
-        Dataset<Row> mappedParquet = parquet.alias("taxiA").join(parquet.alias("taxiB"), col("taxiA.pickup_datetime").equalTo(col("taxiB.dropoff_datetime")));
-//        mappedParquet.orderBy(col("taxiA.trip_time"));
+        mappedParquet.explain();
+        Row[] collected = (Row[]) mappedParquet.take(10);
 
-        Row[] collected = (Row[]) mappedParquet.select("taxiA.trip_time").take(20);
-
-        int i = 0;
-        for(Row row : collected) {
-            System.out.println(row);
-            if(i++ > 30) {
-                break;
-            }
-        }
-
-//        Dataset<Row> subsetParquet = spark.sql("select overlay_scalar, rawmeasured_overlay_x, measureprocessjob_recipename, exposureprocessjob_equipment_equipmentid  from " + "parquet_file");
-//        Dataset<Row> mappedParquet = subsetParquet.withColumn("sum", subsetParquet.col("rawmeasured_overlay_x").plus(subsetParquet.col("measureprocessjob_recipename")));
-//        Dataset<Row> reducedData = mappedParquet.agg(sum(mappedParquet.col("sum").alias("total")));
-
-//        reducedData.show();
         System.out.println("END\n\n\n");
+        Thread.sleep(1000000);
     }
 }

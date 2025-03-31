@@ -1,7 +1,5 @@
 package config;
 
-import jobs.Job;
-import org.apache.commons.lang3.NotImplementedException;
 import org.apache.spark.sql.SparkSession;
 import scala.Tuple2;
 

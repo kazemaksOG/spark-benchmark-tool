@@ -1,7 +1,6 @@
 package jobs;
 
 import config.Workload;
-import org.apache.commons.lang3.NotImplementedException;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
