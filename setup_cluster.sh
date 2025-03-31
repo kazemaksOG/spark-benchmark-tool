@@ -1,6 +1,10 @@
-#!/bin/bash
-
 # Usage: source ./script <OPTIONAL_RESERVATION_ID>
+
+# Deployer variables
+DEPLOYER_HOME="/home/$USER/das-bigdata-deployment-python3"
+TIME="00:15:00"
+MACHINES=5
+SPARK_VERSION="custom-3.5.5"
 
 
 if [ "${BASH_SOURCE[0]}" -ef "$0" ]
@@ -10,12 +14,6 @@ then
 fi
 
 
-
-
-# Deployer variables
-DEPLOYER_HOME="/home/$USER/das-bigdata-deployment-python3"
-TIME="00:15:00"
-MACHINES=5
 
 if [ ! -d "$DEPLOYER_HOME" ]; then
     echo "Error: Directory '$DEPLOYER_HOME' does not exist."
@@ -62,7 +60,7 @@ echo "Using reservation: $RESERVATION_ID"
 
 
 echo "Started deployment..."
-DEPLOY_OUTPUT=$($DEPLOYER_HOME/deployer deploy -q --preserve-id $RESERVATION_ID -s $DEPLOYER_HOME/env/das5-spark.settings spark custom)
+DEPLOY_OUTPUT=$($DEPLOYER_HOME/deployer deploy -q --preserve-id $RESERVATION_ID -s $DEPLOYER_HOME/env/das5-spark.settings spark $SPARK_VERSION)
 
 if [[ "$DEPLOY_OUTPUT" == MASTER_NODE:* ]]; then
     MASTER_ADDR="${DEPLOY_OUTPUT#MASTER_NODE:}"

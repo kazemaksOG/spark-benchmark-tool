@@ -1,3 +1,4 @@
+import org.apache.spark.SparkContext;
 import org.apache.spark.scheduler.Pool;
 import org.apache.spark.scheduler.SchedulableBuilder;
 import org.apache.spark.scheduler.SchedulerContainer;
@@ -7,7 +8,7 @@ public class RandomSchedulerContainer implements SchedulerContainer {
 
 
     @Override
-    public SchedulableBuilder getScheduler(Pool rootPool) {
+    public SchedulableBuilder getScheduler(Pool rootPool, SparkContext sc) {
         return new RandomScheduler(rootPool);
     }
 

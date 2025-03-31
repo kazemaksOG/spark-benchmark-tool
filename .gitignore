@@ -10,3 +10,6 @@ resources/
 
 # logs and outputs gather from runs
 results/data
+
+# personal scripts
+gather_and_clean_results.sh

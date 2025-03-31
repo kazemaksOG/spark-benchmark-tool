@@ -1,24 +1,30 @@
 # Usage: source ./script <MASTER_URL> <RESERVATION_ID>
 
-if [ "${BASH_SOURCE[0]}" -ef "$0" ]
-then
-    echo "Hey, you should source this script, not execute it!"
-    exit 1
-fi
-
-# Env
-source master-env.sh
-
 # which benchmarks to run
-RUN_DEFAULT=1
-RUN_INDIVIDUAL=1
-RUN_COALESCE=1
-RUN_AQE=1
+RUN_DEFAULT=1 # runs all schedulers with /configs/base_DAS5_config.json config
+RUN_INDIVIDUAL=1 # runs all jobs individually just to get expected runtimes without interference
+RUN_COALESCE=0 # runs workloads from $COALESCE_WORKLOAD_DIR
+RUN_AQE=0 # runs all schedulers with ./configs/base_AQE_config.json config
 
 # spark configs
 DEPLOY_MODE="client"
 MAIN_CLASS="BenchRunner"
 ITERATIONS=1
+
+# scheduler configs to use in benchmarks
+declare -A SCHEDULERS
+
+#SCHEDULERS[CUSTOM_SHORT]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=ShortestFirstSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/ShortestFirstScheduler/target/ShortestFirstScheduler-1.0-SNAPSHOT.jar"
+
+#SCHEDULERS[CUSTOM_FAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=UserFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/UserFairScheduler/target/UserFairScheduler-1.0-SNAPSHOT.jar"
+
+#SCHEDULERS[CUSTOM_RANDOM]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=RandomSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/RandomScheduler/target/RandomScheduler-1.0-SNAPSHOT.jar"
+
+SCHEDULERS[CUSTOM_CLUSTERFAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=ClusterFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/ClusterFairScheduler/target/ClusterFairScheduler-1.0-SNAPSHOT.jar"
+SCHEDULERS[CUSTOM_USERCLUSTERFAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=UserClusterFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/UserClusterFairScheduler/target/UserClusterFairScheduler-1.0-SNAPSHOT.jar"
+
+SCHEDULERS[DEFAULT_FAIR]="--conf spark.scheduler.mode=FAIR"
+SCHEDULERS[DEFAULT_FIFO]="--conf spark.scheduler.mode=FIFO"
 
 # Paths
 PROJECT_DIR="/var/scratch/$USER/performance_test"
@@ -30,6 +36,14 @@ INDIVIDUAL_WORKLOAD_DIR="$PROJECT_DIR/configs/individual"
 COALESCE_WORKLOAD_DIR="$PROJECT_DIR/configs/coalesce"
 
 
+if [ "${BASH_SOURCE[0]}" -ef "$0" ]
+then
+    echo "Hey, you should source this script, not execute it!"
+    exit 1
+fi
+
+# Env
+source master-env.sh
 
 # checking for correct input varibales
 
@@ -64,21 +78,6 @@ if [ ! -f "$SPARK_JOB_FILE" ]; then
     echo "Error: file '$SPARK_JOB_FILE' does not exist."
     return 1
 fi
-
-# scheduler configs
-declare -A SCHEDULERS
-
-SCHEDULERS[CUSTOM_SHORT]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=ShortestFirstSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/ShortestFirstScheduler/target/ShortestFirstScheduler-1.0-SNAPSHOT.jar"
-
-SCHEDULERS[CUSTOM_FAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=UserFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/UserFairScheduler/target/UserFairScheduler-1.0-SNAPSHOT.jar"
-
-SCHEDULERS[CUSTOM_RANDOM]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=RandomSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/RandomScheduler/target/RandomScheduler-1.0-SNAPSHOT.jar"
-
-SCHEDULERS[DEFAULT_FAIR]="--conf spark.scheduler.mode=FAIR"
-
-
-SCHEDULERS[DEFAULT_FIFO]="--conf spark.scheduler.mode=FIFO"
-
 
 
 MASTER=$1
@@ -182,7 +181,7 @@ if [ "$RUN_AQE" -eq 1 ]; then
               echo "Running with scheduler: $key"
               for i in $(seq 1 "$ITERATIONS"); do
                   echo "Iteration: $i"
-                  run_spark_job "$key" "$file" ${SCHEDULERS[$key]}
+                  run_spark_job "AQE_$key" "$file" ${SCHEDULERS[$key]}
               done
           done
       fi
