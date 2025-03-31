@@ -5,7 +5,13 @@
   "holdThread": false,
   "sparkConfig": {
     "spark.eventLog.enabled":  true,
-    "spark.executor.memory": "4g"
+    "spark.executor.memory": "4g",
+
+    "spark.sql.adaptive.enabled": true,
+    "spark.sql.adaptive.coalescePartitions.enabled": true,
+    "spark.sql.adaptive.coalescePartitions.parallelismFirst": false,
+    "spark.sql.adaptive.coalescePartitions.minPartitionSize": "20mb",
+    "spark.sql.adaptive.advisoryPartitionSizeInBytes": "100mb"
   },
   "users": []
 }

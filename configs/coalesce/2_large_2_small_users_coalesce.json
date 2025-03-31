@@ -11,7 +11,9 @@
         "startTimeMs": "100",
         "poissonRateInMinutes": 0,
         "frequency": "SEQ",
-        "partitioning": "COALESCE"
+        "params": {
+          "partitioning": "COALESCE"
+        }
       }
     ]
   },

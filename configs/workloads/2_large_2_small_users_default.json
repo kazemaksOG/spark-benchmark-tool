@@ -43,7 +43,7 @@
           "className": "jobs.implementations.ShortOperation",
           "totalIterations": 6,
           "startTimeMs": "150",
-          "poissonRateInMinutes": 8,
+          "poissonRateInMinutes": 16,
           "frequency": "PARA",
           "params": {
           }
@@ -60,7 +60,7 @@
           "className": "jobs.implementations.ShortOperation",
           "totalIterations": 6,
           "startTimeMs": "250",
-          "poissonRateInMinutes": 8,
+          "poissonRateInMinutes": 16,
           "frequency": "PARA",
           "params": {
           }
