@@ -13,3 +13,6 @@ results/data
 
 # personal scripts
 gather_and_clean_results.sh
+
+# png
+*.png

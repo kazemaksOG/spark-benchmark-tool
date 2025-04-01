@@ -62,7 +62,7 @@ source run_all_benchmarks.sh RESERVATION_ID
 ## Results
 Results can be obtained by running the script in `results/visualize_results.py`. It relies on the output results from the benchmarks and the history server running on localhost to get even data. To setup the running environment:
 
-1. Get the benchmark output from `$PROJECT_ROOT/target/becnh_outputs` and place them somewhere in the `$PROJECT_ROOT/results` directory
+1. Get the benchmark output from `$PROJECT_ROOT/target/becnh_outputs` and place them somewhere in the `$PROJECT_ROOT/results` directory. **Note**: Some statistics and visuals depend on BASE runtimes to make calculations. These must be present for the script to work. These are enabled by setting `RUN_INDIVIDUAL=1` in `run_all_benchmarks.sh`.
 2. Change the paths in `visualize_results.py` to reflect that location.
 3. Gather the events from the benchmarks and have the history server running in the background on them.
 4. launch the python script with `python3 visualize_results <COMMAND>`

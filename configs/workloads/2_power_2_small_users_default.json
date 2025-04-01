@@ -3,7 +3,7 @@
     "user": "user1_power",
     "workloads": [
       {
-        "workloadName": "short_job",
+        "workloadName": "short_job_1",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -15,7 +15,7 @@
         }
       },
       {
-        "workloadName": "short_job",
+        "workloadName": "short_job_2",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -27,7 +27,7 @@
         }
       },
       {
-        "workloadName": "short_job",
+        "workloadName": "short_job_3",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -39,7 +39,7 @@
         }
       },
       {
-        "workloadName": "short_job",
+        "workloadName": "short_job_4",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -56,7 +56,7 @@
     "user": "user2_power",
     "workloads": [
       {
-        "workloadName": "short_job",
+        "workloadName": "short_job_1",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -68,7 +68,7 @@
         }
       },
       {
-        "workloadName": "short_job",
+        "workloadName": "short_job_2",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -80,7 +80,7 @@
         }
       },
       {
-        "workloadName": "short_job",
+        "workloadName": "short_job_3",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -92,7 +92,7 @@
         }
       },
       {
-        "workloadName": "short_job",
+        "workloadName": "short_job_4",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -109,7 +109,7 @@
     "user": "user3_small",
     "workloads": [
       {
-        "workloadName": "short_job",
+        "workloadName": "short_job_1",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
@@ -126,7 +126,7 @@
     "user": "user4_small",
     "workloads": [
       {
-        "workloadName": "short_job",
+        "workloadName": "short_job_1",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.ShortOperation",
