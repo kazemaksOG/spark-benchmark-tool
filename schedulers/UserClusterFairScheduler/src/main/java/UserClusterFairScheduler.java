@@ -1,56 +1,54 @@
 import org.apache.spark.SparkContext;
 import org.apache.spark.scheduler.*;
+import org.jetbrains.annotations.NotNull;
 import scala.Tuple2;
 
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Properties;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class  UserClusterFairScheduler implements SchedulableBuilder {
 
 
-    class UserStage {
-        long lastProgressTime;
+    class UserStage implements Comparable<UserStage> {
+        long virtualDeadline;
+
         long expectedRuntime;
-        long progress;
-        double previousShare;
+        long remainingTime;
         TaskSetManager tm;
-        UserStage(long startTime, long expectedRuntime, TaskSetManager tm) {
-            this.lastProgressTime = startTime;
+        UserStage(long virtualDeadline, long expectedRuntime, TaskSetManager tm) {
             this.expectedRuntime = expectedRuntime;
-            this.progress = 0;
-            this.previousShare = 0;
+            this.remainingTime = expectedRuntime;
+            this.virtualDeadline = virtualDeadline;
             this.tm = tm;
         }
 
-        public synchronized void updateDeadline(double stageShare, Long currentTime) {
-            if(currentTime < this.lastProgressTime) {
-                System.out.println("######## ERROR: end time skew detected: " +tm.stageId());
-                System.out.println("######## ERROR: previous: " + this.lastProgressTime + " current: " + currentTime);
-            }
-
-
+        public synchronized void updateDeadline(long virtualTime, long currentTime, double stageShare) {
             // Get how much of the expected time has progressed
-            this.progress += (long)((currentTime - this.lastProgressTime) * this.previousShare);
+            this.remainingTime = virtualDeadline - virtualTime;
 
             // Calculate the new deadline
-            long deadline = currentTime + (long)((this.expectedRuntime - this.progress) / stageShare);
-
+            long deadline = currentTime + (long)(remainingTime / stageShare);
 
             System.out.println("######## Stage calculations:" + tm.stageId());
-            System.out.println("currentTime: " + convertReadableTime(currentTime));
-            System.out.println("lastProgressTime: " + convertReadableTime(this.lastProgressTime));
-            System.out.println("previousShare: " + this.previousShare + " -> " + stageShare);
-            System.out.println("### progress: " + this.progress);
-            System.out.println("### expectedRuntime: " + this.expectedRuntime);
             System.out.println("### deadline: " + convertReadableTime(tm.deadline()) + " -> " + convertReadableTime(deadline));
+            // only update if task is not finished yet
+            if (this.remainingTime > 0) {
+                this.tm.deadline_$eq(deadline);
+            } else {
+                System.out.println("### completed");
+            }
+            System.out.println("virtualDeadline: " + convertReadableTime(virtualDeadline));
+            System.out.println("virtualTime: " + convertReadableTime(virtualTime));
+            System.out.println("remaining time: " + remainingTime);
+            System.out.println("stageShare: " + stageShare);
+            System.out.println("currentTime: " + convertReadableTime(currentTime));
+            System.out.println("### expectedRuntime: " + this.expectedRuntime);
 
-            this.tm.deadline_$eq(deadline);
-            // update previous variables
-            this.previousShare = stageShare;
-            this.lastProgressTime = currentTime;
+        }
+
+        @Override
+        public int compareTo(UserStage userStage) {
+            return Long.compare(this.virtualDeadline, userStage.virtualDeadline);
         }
     }
 
@@ -58,61 +56,124 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
         String name;
         double share;
-        HashMap<Integer, UserStage> activeStages = new HashMap<>();
+        long virtualTime;
+        long previousCurrentTIme;
+        TreeSet<UserStage> activeStages;
 
-        User(String name, double share) {
+        User(String name, double share, long startTime) {
             this.name = name;
             this.share = share;
+
+            this.virtualTime = startTime;
+            this.previousCurrentTIme = startTime;
+            this.activeStages = new TreeSet<>();
         }
 
-        /** Updates deadlines of all tasksets for this user
-         *
-         * @param estimatedCurrentTime - time used for advancing tasks in fair scheduler
-         */
-        public synchronized void updateDeadlines(Long estimatedCurrentTime) {
-            double stageShare = share / (activeStages.size());
-            System.out.println("######## User:" + name + " stage share:" + stageShare + " user share: " + this.share);
-            for(UserStage userStage : activeStages.values()) {
-                userStage.updateDeadline(stageShare, estimatedCurrentTime);
+        public long userFinishTime(long currentTime) {
+            // if no stages, return current time
+            if (activeStages.isEmpty()) {
+                System.out.println("###### ERROR: user finish time called on empty user: " + name + "time: " + convertReadableTime(currentTime));
+                return currentTime - 1;
             }
+
+
+            // get what could be current virtual time
+            double stageShare = this.share / activeStages.size();
+            long currentVirtualTime = this.virtualTime + (long)((currentTime - this.previousCurrentTIme) * stageShare);
+
+            // check if last deadline has passed
+            long lastVirtualDeadline = activeStages.last().virtualDeadline;
+            if(lastVirtualDeadline <= currentVirtualTime) {
+                // return the real time user finished his jobs
+                long realTimeSpent = (long)((lastVirtualDeadline - this.virtualTime) / stageShare);
+                long userFinishTime = this.previousCurrentTIme + realTimeSpent;
+                if (userFinishTime > currentTime) {
+                    System.out.println("### ERROR: user finish time is greater than current time, finish: " + convertReadableTime(userFinishTime) + " current time" + convertReadableTime(currentTime));
+                    return currentTime - 1;
+                }
+                return userFinishTime;
+            } else {
+                return -1;
+            }
+
+        }
+
+        public synchronized boolean updateDeadlines(long currentTime) {
+            // only update if time has passed
+            if (currentTime <= this.previousCurrentTIme) {
+                return false;
+            }
+            // if no stages, do nothing
+            if (activeStages.isEmpty()) {
+                return true;
+            }
+
+            // calculate current shares
+            int activeStagesSize = this.activeStages.size();
+            double stageShare = this.share / activeStagesSize;
+
+            // update virtual time
+            this.virtualTime += (long)((currentTime - this.previousCurrentTIme) * stageShare);
+            this.previousCurrentTIme = currentTime;
+
+
+            System.out.println("######## User:" + name + " stage share:" + stageShare + " user share: " + this.share + " time: " + this.virtualTime);
+
+            // iterate over stages and update them
+            Iterator<UserStage> stageIterator = activeStages.iterator();
+            while (stageIterator.hasNext()) {
+                UserStage stage = stageIterator.next();
+
+                // check if stage has finished, otherwise update progress
+                if(stage.virtualDeadline < this.virtualTime) {
+                    stageIterator.remove();
+                    activeStagesSize--;
+                    stageShare = activeStagesSize > 0 ? stageShare / activeStagesSize : 0;
+                } else {
+                    stage.updateDeadline(this.virtualTime, currentTime, stageShare);
+                }
+
+            }
+            return activeStages.isEmpty();
         }
 
         public synchronized void updateShare(double share) {
             this.share = share;
         }
 
-        public synchronized void addStage(long startTime, long expectedRuntime, TaskSetManager tm) {
-
-            UserStage stage = new UserStage(startTime, expectedRuntime, tm);
-            activeStages.put(tm.stageId(), stage);
-        }
-
-        /** Remove a completed stage from user
+        /** This function assumes that updateDeadlines has been called previously, with updated virtual time
          *
-         * @param stageId - stage to remove
-         * @return returns true if user now has no stages, false otherwise
+         * @param expectedRuntime
+         * @param tm
          */
-        public synchronized boolean completeStage(int stageId) {
-            if(activeStages.remove(stageId) == null) {
-                System.out.println("######## ERROR: Stage " + stageId + " not found");
-            }
+        public synchronized void addStage(long expectedRuntime, TaskSetManager tm) {
 
-            return activeStages.isEmpty();
+            long virtualDeadline = this.virtualTime + expectedRuntime;
+            UserStage stage = new UserStage(virtualDeadline, expectedRuntime, tm);
+
+            System.out.println("######## User:" + name + " adding stage stage: " + tm.stageId() + " with deadline: " + convertReadableTime(virtualDeadline));
+
+            activeStages.add(stage);
         }
     }
 
     Pool rootPool;
     SparkContext sc;
     int totalCores;
-    StageListener listener;
+    PerformanceEstimatorInterface performanceEstimator;
 
     // User fair scheduling variables
     ConcurrentHashMap<String, User> activeUsers = new ConcurrentHashMap<>();
-    ConcurrentHashMap<Integer, String> stageIdToUser = new ConcurrentHashMap<>();
     long startTime = System.currentTimeMillis();
     UserClusterFairScheduler(Pool rootPool, SparkContext sc) {
         this.rootPool = rootPool;
         this.sc = sc;
+        this.totalCores = 1;
+
+        performanceEstimator = sc.getPerformanceEstimator().getOrElse(() -> {
+            throw new RuntimeException("Performance estimator not available");
+        });
+        System.out.println("######## UserClusterFairScheduler started with cores: " + this.totalCores);
     }
 
     @Override
@@ -125,127 +186,99 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
     }
 
-    private void initialize() {
-        // Find and initialize the listener
-        for( SparkListenerInterface l : sc.listenerBus().listeners()) {
-            if (l instanceof StageListener stageListener) {
-                listener = stageListener;
-            }
-        }
-        this.totalCores = sc.defaultParallelism();
-    }
-
     protected double convertReadableTime(long time) {
         return (time - startTime) / 1000.0;
     }
 
 
     private void setPriority(Schedulable schedulable, Properties properties) {
-        // Initialize if this is the first arriving schedulable
-        if (listener == null) {
-            initialize();
-        }
-
         // TaskSetManager represents stages, other schedulables are ignored
         if(!(schedulable instanceof TaskSetManager taskSetManager)) {
             return;
         }
+        this.totalCores = this.sc.defaultParallelism();
 
         // ######## Update virtual fair scheduler #########
-
-        // see if any stages have finished
-        List<Tuple2<Integer, Long>> endTimes = listener.getStageEndTimes();
-
         long currentTime = System.currentTimeMillis();
-        System.out.println("####### Current time: " + convertReadableTime(currentTime));
+        System.out.println("####### Current time: " + convertReadableTime(currentTime) + " with cores: " + this.totalCores);
 
-        // advance fair scheduler
-        long previousEndTime = 0;
-        for(Tuple2<Integer, Long> stageTuple : endTimes) {
-            int stageId = stageTuple._1();
-            long endTime = stageTuple._2();
-
-            if( previousEndTime > endTime) {
-                System.out.println("######## ERROR: end time skew detected: " +stageId);
-                System.out.println("######## ERROR: previous: " + previousEndTime + " current: " + endTime);
-            }
-            if(!stageIdToUser.containsKey(stageId)) {
-                // This should technically never occur
-                System.out.println("######## ERROR: stage was already finished: " +stageId);
-                continue;
-            }
-
-            // remove the stage from the map
-            String userName = stageIdToUser.remove(stageId);
-            System.out.println("######## Stage completed: " + stageId
-                    + " with endtime: " + convertReadableTime(endTime)
-                    + " for user: " + userName
-            );
-
-            // To ensure that multiple threads dont add/remove users
-            synchronized(this) {
-                if(!activeUsers.containsKey(userName)) {
-                    // This should technically never occur
-                    System.out.println("######## ERROR: user not found: " +stageId);
+        // check if any user has finished
+        do {
+            long userMinFinishedTime = currentTime;
+            User minUser = null;
+            // find user with the earliest finish time
+            for(User user : activeUsers.values()) {
+                long userFinishTime = user.userFinishTime(currentTime);
+                // check if user has finished
+                if(userFinishTime == -1) {
                     continue;
                 }
-
-                // remove the stage from the user
-                User currentUser = activeUsers.get(userName);
-                if(currentUser.completeStage(stageId)) {
-                    activeUsers.remove(userName);
-                    // Update shares for other users
-                    if(!activeUsers.isEmpty()) {
-                        double userShare = ((double) this.totalCores) / (activeUsers.size());
-                        for(User u : activeUsers.values()) {
-                            u.updateShare(userShare);
-                        }
-                    }
-
+                // check if this is the smallest user
+                if(userFinishTime < userMinFinishedTime) {
+                    userMinFinishedTime = userFinishTime;
+                    minUser = user;
                 }
             }
 
-            previousEndTime = endTime;
-        }
+            // check if any user has finished
+            if(minUser == null) {
+                break;
+            } else {
+                // progress all users until minUser leaves the queue
+                for(User user : activeUsers.values()) {
+                    if(user.name.equals(minUser.name)) {
+                        continue;
+                    }
+                    user.updateDeadlines(userMinFinishedTime);
+                }
+
+                // remove the user with smallest finish time
+                activeUsers.remove(minUser.name);
+                // recalculate user shares
+                double userShare = ((double) this.totalCores) / ((double)activeUsers.size());
+                // Update all users with the new share values
+                for(User user : activeUsers.values()) {
+                    user.updateShare(userShare);
+                }
+            }
+        } while(true);
+
+
 
         // ######## Add stage and update deadlines #########
         int stageId = taskSetManager.stageId();
 
         // Calculate deadline of current stage
-        long expectedRuntime = listener.getRuntimeEstimate(stageId);
+        long expectedRuntime = performanceEstimator.getRuntimeEstimate(stageId);
 
         // Get current user
         String userName = properties.getProperty("user.name");
         if (userName == null) {
             userName = "DEFAULT";
         }
+        String description = properties.getProperty("spark.job.description");
+        System.out.println("######## Adding stage User: " + userName + " description: " + description);
 
         synchronized(this) {
-            if (!activeUsers.containsKey(userName)) {
-                // create a new user in the fair scheduler
+            // get or create a user
+            User addingUser = activeUsers.computeIfAbsent(userName, mapUserName -> {
                 double userShare = ((double) this.totalCores) / (activeUsers.size() + 1.0);
-                User newUser = new User(userName, expectedRuntime);
-                activeUsers.put(userName, newUser);
-
-                newUser.addStage(currentTime, expectedRuntime, taskSetManager);
-
                 // Update all shares, since a new user takes equal portion
                 for(User user : activeUsers.values()) {
                     user.updateShare(userShare);
                 }
-            } else {
-                // update only the current user
-                User currentUser = activeUsers.get(userName);
-                currentUser.addStage(currentTime, expectedRuntime, taskSetManager);
+                return new User(mapUserName, userShare, currentTime);
+            });
+            // add the stage to the user
+            addingUser.addStage(expectedRuntime, taskSetManager);
 
-            }
             // update all deadlines to catch up to current time, and recalculate deadlines based on shares
             for(User user : activeUsers.values()) {
-                user.updateDeadlines(currentTime);
+                if(user.updateDeadlines(currentTime)) {
+                    System.out.println("####### ERROR: user finished all their jobs, should not happen here!");
+                    activeUsers.remove(user.name);
+                }
             }
-            // Keep track of who the stage belongs to
-            stageIdToUser.put(stageId, userName);
-
         }
 
         System.out.println("######## INFO_CHECK: time taken for scheudling " + (System.currentTimeMillis() - currentTime));

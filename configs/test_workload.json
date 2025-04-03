@@ -11,7 +11,9 @@
         "startTimeMs": "100",
         "poissonRateInMinutes": 0,
         "frequency": "SEQ",
-        "partitioning": "NONE"
+        "partitioning": "NONE",
+        "params": {
+        }
       }
     ]
   }

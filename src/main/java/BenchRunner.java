@@ -3,7 +3,6 @@ import config.Config;
 import config.User;
 import config.Workload;
 import org.apache.spark.api.java.JavaSparkContext;
-import org.apache.spark.scheduler.StageListener;
 import org.apache.spark.sql.RuntimeConfig;
 import org.apache.spark.sql.SparkSession;
 import scala.Tuple2;
@@ -46,10 +45,6 @@ public class BenchRunner {
                     .config(config.getSparkConfig())
                     .getOrCreate();
             LOGGER.log(INFO, "Created spark session with app name {}", benchName);
-
-            StageListener s = new StageListener();
-            spark.sparkContext().addSparkListener(s);
-            LOGGER.log(INFO, "Listener added");
 
             String benchNameFile = benchName + LocalDateTime.now().format(formatTime) + ".json";
             // get user workloads and run them
