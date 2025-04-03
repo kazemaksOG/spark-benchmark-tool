@@ -27,12 +27,12 @@ declare -A SCHEDULERS
 
 #SCHEDULERS[CUSTOM_SHORT]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=ShortestFirstSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/ShortestFirstScheduler/target/ShortestFirstScheduler-1.0-SNAPSHOT.jar"
 
-#SCHEDULERS[CUSTOM_FAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=UserFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/UserFairScheduler/target/UserFairScheduler-1.0-SNAPSHOT.jar"
+SCHEDULERS[CUSTOM_FAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=UserFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/UserFairScheduler/target/UserFairScheduler-1.0-SNAPSHOT.jar"
 
 #SCHEDULERS[CUSTOM_RANDOM]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=RandomSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/RandomScheduler/target/RandomScheduler-1.0-SNAPSHOT.jar"
 
-SCHEDULERS[CUSTOM_CLUSTERFAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=ClusterFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/ClusterFairScheduler/target/ClusterFairScheduler-1.0-SNAPSHOT.jar"
-SCHEDULERS[CUSTOM_USERCLUSTERFAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=UserClusterFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/UserClusterFairScheduler/target/UserClusterFairScheduler-1.0-SNAPSHOT.jar"
+#SCHEDULERS[CUSTOM_CLUSTERFAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=ClusterFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/ClusterFairScheduler/target/ClusterFairScheduler-1.0-SNAPSHOT.jar"
+SCHEDULERS[CUSTOM_USERCLUSTERFAIR]="--conf spark.scheduler.mode=CUSTOM --conf  spark.customSchedulerContainer=UserClusterFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/UserClusterFairScheduler/target/UserClusterFairScheduler-1.0-SNAPSHOT.jar:$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar --conf spark.customPerformanceEstimator=OraclePerformanceEstimatorr"
 
 SCHEDULERS[DEFAULT_FAIR]="--conf spark.scheduler.mode=FAIR"
 SCHEDULERS[DEFAULT_FIFO]="--conf spark.scheduler.mode=FIFO"
