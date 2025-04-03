@@ -11,6 +11,17 @@ DEPLOY_MODE="client"
 MAIN_CLASS="BenchRunner"
 ITERATIONS=1
 
+
+# Paths
+PROJECT_DIR="/var/scratch/$USER/performance_test"
+SCHEDULER_DIR="$PROJECT_DIR/schedulers"
+SPARK_JOB_FILE="$PROJECT_DIR/target/performance_test-1.0-SNAPSHOT.jar"
+
+WORKLOAD_DIR="$PROJECT_DIR/configs/workloads"
+INDIVIDUAL_WORKLOAD_DIR="$PROJECT_DIR/configs/individual"
+COALESCE_WORKLOAD_DIR="$PROJECT_DIR/configs/coalesce"
+
+
 # scheduler configs to use in benchmarks
 declare -A SCHEDULERS
 
@@ -26,14 +37,7 @@ SCHEDULERS[CUSTOM_USERCLUSTERFAIR]="--conf spark.scheduler.mode=CUSTOM --conf sp
 SCHEDULERS[DEFAULT_FAIR]="--conf spark.scheduler.mode=FAIR"
 SCHEDULERS[DEFAULT_FIFO]="--conf spark.scheduler.mode=FIFO"
 
-# Paths
-PROJECT_DIR="/var/scratch/$USER/performance_test"
-SCHEDULER_DIR="$PROJECT_DIR/schedulers"
-SPARK_JOB_FILE="$PROJECT_DIR/target/performance_test-1.0-SNAPSHOT.jar"
 
-WORKLOAD_DIR="$PROJECT_DIR/configs/workloads"
-INDIVIDUAL_WORKLOAD_DIR="$PROJECT_DIR/configs/individual"
-COALESCE_WORKLOAD_DIR="$PROJECT_DIR/configs/coalesce"
 
 
 if [ "${BASH_SOURCE[0]}" -ef "$0" ]
