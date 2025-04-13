@@ -12,12 +12,12 @@ public class ClusterFairScheduler implements SchedulableBuilder {
     Pool rootPool;
     SparkContext sc;
     int totalCores;
-    StageListener listener;
 
     // Virtual time related variables
     long virtualTime = System.currentTimeMillis();
     long startTime = System.currentTimeMillis();
     long lastStageSubmissionTime = virtualTime;
+    PerformanceEstimatorInterface performanceEstimator;
     ConcurrentHashMap<Integer, TaskSetManager> activeStages = new ConcurrentHashMap<>();
 
     ClusterFairScheduler(Pool rootPool, SparkContext sc) {
@@ -36,30 +36,17 @@ public class ClusterFairScheduler implements SchedulableBuilder {
 
     }
 
-    private void initialize() {
-        // Find and initialize the listener
-        for( SparkListenerInterface l : sc.listenerBus().listeners()) {
-            if (l instanceof StageListener stageListener) {
-                listener = stageListener;
-            }
-        }
-        this.totalCores = sc.defaultParallelism();
-    }
-
     private double convertReadableTime(long time) {
         return (time - startTime) / 1000.0;
     }
 
     private void setPriority(Schedulable schedulable, Properties properties) {
-        // Initialize if this is the first arriving schedulable
-        if (listener == null) {
-            initialize();
-        }
-
         // TaskSetManager represents stages, other schedulables are ignored
         if(!(schedulable instanceof TaskSetManager taskSetManager)) {
             return;
         }
+
+        this.totalCores = this.sc.defaultParallelism();
 
         // ######## Update virtual time #########
 
@@ -135,7 +122,7 @@ public class ClusterFairScheduler implements SchedulableBuilder {
         int stageId = taskSetManager.stageId();
 
         // Calculate deadline of current stage
-        long expectedRuntime = listener.getRuntimeEstimate(stageId);
+        long expectedRuntime = performanceEstimator.getRuntimeEstimate(stageId);
         long deadline = virtualTime + expectedRuntime;
         taskSetManager.deadline_$eq(deadline);
 

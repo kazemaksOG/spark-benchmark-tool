@@ -14,10 +14,12 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
         long expectedRuntime;
         long remainingTime;
+        long stageFinishTime;
         TaskSetManager tm;
-        UserStage(long virtualDeadline, long expectedRuntime, TaskSetManager tm) {
+        UserStage(long virtualDeadline, long stageFinishTime, long expectedRuntime, TaskSetManager tm) {
             this.expectedRuntime = expectedRuntime;
             this.remainingTime = expectedRuntime;
+            this.stageFinishTime = stageFinishTime;
             this.virtualDeadline = virtualDeadline;
             this.tm = tm;
         }
@@ -48,7 +50,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
         @Override
         public int compareTo(UserStage userStage) {
-            return Long.compare(this.virtualDeadline, userStage.virtualDeadline);
+            return Long.compare(this.stageFinishTime, userStage.stageFinishTime);
         }
     }
 
@@ -58,22 +60,25 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         double share;
         long virtualTime;
         long previousCurrentTIme;
+        HashMap<Long, Long> jobIdToDeadline = new HashMap<>();
         TreeSet<UserStage> activeStages;
 
         User(String name, double share, long startTime) {
             this.name = name;
             this.share = share;
 
+            this.jobIdToDeadline = new HashMap<>();
+
             this.virtualTime = startTime;
             this.previousCurrentTIme = startTime;
             this.activeStages = new TreeSet<>();
         }
 
-        public long userFinishTime(long currentTime) {
+        public Optional<Long> userFinishTime(long currentTime) {
             // if no stages, return current time
             if (activeStages.isEmpty()) {
                 System.out.println("###### ERROR: user finish time called on empty user: " + name + "time: " + convertReadableTime(currentTime));
-                return currentTime - 1;
+                return Optional.of(currentTime - 1);
             }
 
 
@@ -82,18 +87,18 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             long currentVirtualTime = this.virtualTime + (long)((currentTime - this.previousCurrentTIme) * stageShare);
 
             // check if last deadline has passed
-            long lastVirtualDeadline = activeStages.last().virtualDeadline;
-            if(lastVirtualDeadline <= currentVirtualTime) {
+            long lastFinishTime = activeStages.last().stageFinishTime;
+            if(lastFinishTime <= currentVirtualTime) {
                 // return the real time user finished his jobs
-                long realTimeSpent = (long)((lastVirtualDeadline - this.virtualTime) / stageShare);
+                long realTimeSpent = (long)((lastFinishTime - this.virtualTime) / stageShare);
                 long userFinishTime = this.previousCurrentTIme + realTimeSpent;
                 if (userFinishTime > currentTime) {
                     System.out.println("### ERROR: user finish time is greater than current time, finish: " + convertReadableTime(userFinishTime) + " current time" + convertReadableTime(currentTime));
-                    return currentTime - 1;
+                    return Optional.of(currentTime - 10);
                 }
-                return userFinishTime;
+                return Optional.of(userFinishTime);
             } else {
-                return -1;
+                return Optional.empty();
             }
 
         }
@@ -125,14 +130,13 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
                 UserStage stage = stageIterator.next();
 
                 // check if stage has finished, otherwise update progress
-                if(stage.virtualDeadline < this.virtualTime) {
+                if(stage.stageFinishTime < this.virtualTime) {
                     stageIterator.remove();
                     activeStagesSize--;
-                    stageShare = activeStagesSize > 0 ? stageShare / activeStagesSize : 0;
+                    stageShare = activeStagesSize > 0 ? this.share / activeStagesSize : 0;
                 } else {
                     stage.updateDeadline(this.virtualTime, currentTime, stageShare);
                 }
-
             }
             return activeStages.isEmpty();
         }
@@ -146,12 +150,25 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
          * @param expectedRuntime
          * @param tm
          */
-        public synchronized void addStage(long expectedRuntime, TaskSetManager tm) {
+        public synchronized void addStage(long expectedStageRuntime, JobRuntime jobRuntime, TaskSetManager tm) {
+            // compute initial virtualDeadline
+            long virtualDeadline;
+            // check if job already exists
+            if (jobRuntime.id() != JobRuntime.JOB_INVALID_ID()) {
+                // check if job already has a deadline, otherwise compute it
+                virtualDeadline = jobIdToDeadline.computeIfAbsent(jobRuntime.id(), key -> this.virtualTime + jobRuntime.time());
+            } else {
+                // if id is invalid, job has no profile, hence we treat it as a 1 stage job
+                virtualDeadline = this.virtualTime + jobRuntime.time();
+            }
 
-            long virtualDeadline = this.virtualTime + expectedRuntime;
-            UserStage stage = new UserStage(virtualDeadline, expectedRuntime, tm);
+            // stage finish time is based on stage runtime
+            long stageFinishTime = this.virtualTime + expectedStageRuntime;
+            UserStage stage = new UserStage(virtualDeadline, stageFinishTime, expectedStageRuntime, tm);
 
-            System.out.println("######## User:" + name + " adding stage stage: " + tm.stageId() + " with deadline: " + convertReadableTime(virtualDeadline));
+            System.out.println("######## User:" + name + " adding stage stage: " + tm.stageId() +
+                    " with deadline: " + convertReadableTime(virtualDeadline) +
+                    "stage stage finish time: " + convertReadableTime(stageFinishTime));
 
             activeStages.add(stage);
         }
@@ -208,14 +225,14 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             User minUser = null;
             // find user with the earliest finish time
             for(User user : activeUsers.values()) {
-                long userFinishTime = user.userFinishTime(currentTime);
+                Optional<Long> userFinishTime = user.userFinishTime(currentTime);
                 // check if user has finished
-                if(userFinishTime == -1) {
+                if(userFinishTime.isEmpty()) {
                     continue;
                 }
                 // check if this is the smallest user
-                if(userFinishTime < userMinFinishedTime) {
-                    userMinFinishedTime = userFinishTime;
+                if(userFinishTime.get() < userMinFinishedTime) {
+                    userMinFinishedTime = userFinishTime.get();
                     minUser = user;
                 }
             }
@@ -246,10 +263,12 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
 
         // ######## Add stage and update deadlines #########
+
         int stageId = taskSetManager.stageId();
 
-        // Calculate deadline of current stage
-        long expectedRuntime = performanceEstimator.getRuntimeEstimate(stageId);
+        // get both stage and job runtimes: job runtime is used for setting deadlines, while stage runtime is used to keep track of when stage ends
+        long expectedStageRuntime = performanceEstimator.getStageRuntime(stageId);
+        JobRuntime jobRuntime = performanceEstimator.getJobRuntime(stageId);
 
         // Get current user
         String userName = properties.getProperty("user.name");
@@ -262,6 +281,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         synchronized(this) {
             // get or create a user
             User addingUser = activeUsers.computeIfAbsent(userName, mapUserName -> {
+                System.out.println("######## New user: " + mapUserName);
                 double userShare = ((double) this.totalCores) / (activeUsers.size() + 1.0);
                 // Update all shares, since a new user takes equal portion
                 for(User user : activeUsers.values()) {
@@ -269,8 +289,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
                 }
                 return new User(mapUserName, userShare, currentTime);
             });
-            // add the stage to the user
-            addingUser.addStage(expectedRuntime, taskSetManager);
+
 
             // update all deadlines to catch up to current time, and recalculate deadlines based on shares
             for(User user : activeUsers.values()) {
@@ -279,6 +298,9 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
                     activeUsers.remove(user.name);
                 }
             }
+
+            // add the stage to the user
+            addingUser.addStage(expectedStageRuntime, jobRuntime, taskSetManager);
         }
 
         System.out.println("######## INFO_CHECK: time taken for scheudling " + (System.currentTimeMillis() - currentTime));

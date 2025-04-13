@@ -14,6 +14,7 @@ Scriptes have been tested on DAS5 and require `bash` to be the shell sourcing th
 * **Custom schedulers** - Custom schedulers are under the `schedulers` directory. They have to be packed and added as arguments to Spark launcher
 
 * **Custom spark** - A modified Spark version is used to run these tests. This can be found in here: [https://github.com/kazemaksOG/spark-3.5.5-custom#](https://github.com/kazemaksOG/spark-3.5.5-custom#)
+* **Java version** - All maven modules have been tested with `java-17-openjdk`. Other java versions could work, but present no guarantees.
 
 To setup the environment for the scripts:
 1. Clone the DAS5 deployment framework 
@@ -64,7 +65,10 @@ Results can be obtained by running the script in `results/visualize_results.py`.
 
 1. Get the benchmark output from `$PROJECT_ROOT/target/becnh_outputs` and place them somewhere in the `$PROJECT_ROOT/results` directory. **Note**: Some statistics and visuals depend on BASE runtimes to make calculations. These must be present for the script to work. These are enabled by setting `RUN_INDIVIDUAL=1` in `run_all_benchmarks.sh`.
 2. Change the paths in `visualize_results.py` to reflect that location.
-3. Gather the events from the benchmarks and have the history server running in the background on them.
+3. Gather the events from the benchmarks and have the history server running in the background on them. If using `conf/spark/custom/` when setting up the cluster, the events will be stored in 
+```
+spark.eventLog.dir               /var/scratch/__USER__/eventlogs/
+```
 4. launch the python script with `python3 visualize_results <COMMAND>`
 
 
