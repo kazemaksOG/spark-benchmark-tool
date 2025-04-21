@@ -1,3 +1,6 @@
+package OraclePerformanceEstimator.Jobs.SQL;
+
+import OraclePerformanceEstimator.Util.StageTypeClassifier;
 import org.apache.spark.executor.TaskMetrics;
 import org.apache.spark.scheduler.StageInfo;
 import org.apache.spark.sql.execution.SparkPlanInfo;
@@ -7,6 +10,8 @@ import java.util.List;
 import java.util.Optional;
 import java.util.TreeSet;
 
+import static OraclePerformanceEstimator.Jobs.JobProfile.DEFAULT_STAGE_RUNTIME;
+
 public class StageNode {
     Optional<Long> realRuntime = Optional.empty();
     Optional<Long> inputSize = Optional.empty();
@@ -14,12 +19,18 @@ public class StageNode {
 
     TreeSet<Integer> wholeStageCodegenIds = new TreeSet<>();
     List<SQLNodeProfile> sqlNodes;
-    long estimatedRuntime = JobProfileContainer.DEFAULT_STAGE_RUNTIME;
+    long estimatedRuntime = DEFAULT_STAGE_RUNTIME;
     StageNode(SQLNodeProfile sqlNodeProfile) {
         this.sqlNodes = new LinkedList<>();
         sqlNodes.add(sqlNodeProfile);
 
         addWholeStageCodegenId(sqlNodeProfile.planInfo);
+    }
+
+    // For Oracle jobs
+    StageNode(long runtime, TreeSet<Integer> wholeStageCodegenIds) {
+        this.realRuntime = Optional.of(runtime);
+        this.wholeStageCodegenIds = wholeStageCodegenIds;
     }
 
     private void addWholeStageCodegenId(SparkPlanInfo planInfo) {
@@ -35,6 +46,7 @@ public class StageNode {
     }
 
     public TreeSet<Integer> getStageNodeIds() {
+
         return wholeStageCodegenIds;
     }
     public boolean isCompleted() {
@@ -86,6 +98,5 @@ public class StageNode {
 
          this.realRuntime = Optional.of(stageMetrics.executorRunTime());
          this.inputSize = Optional.of(stageMetrics.inputMetrics().bytesRead());
-
     }
 }

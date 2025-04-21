@@ -1,7 +1,8 @@
+package OraclePerformanceEstimator;
+
 import org.apache.spark.executor.TaskMetrics;
 import org.apache.spark.scheduler.*;
 import org.apache.spark.sql.execution.SparkPlanInfo;
-import org.apache.spark.sql.execution.metric.SQLMetric;
 import org.apache.spark.sql.execution.metric.SQLMetricInfo;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLAdaptiveExecutionUpdate;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd;
@@ -58,13 +59,15 @@ class StageListener extends SparkListener {
             System.out.println(eventsql.time());
             System.out.println("desc:" + eventsql.description());
             System.out.println("modified conf:" + eventsql.modifiedConfigs().mkString());
-//            System.out.println(eventsql.physicalPlanDescription());
+            System.out.println(eventsql.physicalPlanDescription());
+            printPlanTree(eventsql.sparkPlanInfo());
 
         } else if (event instanceof SparkListenerSQLAdaptiveExecutionUpdate eventsql) {
             this.queue.add(eventsql);
             System.out.println("########################### SQL Execution Update");
-//            System.out.println(eventsql.physicalPlanDescription());
+            System.out.println(eventsql.physicalPlanDescription());
             System.out.println("id:" + eventsql.executionId());
+            printPlanTree(eventsql.sparkPlanInfo());
 
         } else if (event instanceof SparkListenerSQLExecutionEnd eventsql) {
             this.queue.add(eventsql);
@@ -98,10 +101,10 @@ class StageListener extends SparkListener {
         while(!stack.empty()) {
             SparkPlanInfo currentStage = stack.pop();
 
-            System.out.println(currentStage.nodeId());
-            System.out.println(currentStage.nodeName());
-            System.out.println("Simplified: " + currentStage.simpleString());
-            System.out.println("Metadata: " + currentStage.metadata().mkString());
+            System.out.println("sqlId: " + currentStage.nodeId());
+            System.out.println("sqlName: " + currentStage.nodeName());
+//            System.out.println("Simplified: " + currentStage.simpleString());
+//            System.out.println("Metadata: " + currentStage.metadata().mkString());
 
             Seq<SQLMetricInfo> metScala = currentStage.metrics(); // Scala Seq<RDDInfo>
             List<SQLMetricInfo> listMetrics = JavaConverters.seqAsJavaList(metScala);

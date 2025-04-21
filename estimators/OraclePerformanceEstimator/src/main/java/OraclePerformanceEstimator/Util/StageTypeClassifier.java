@@ -1,3 +1,6 @@
+package OraclePerformanceEstimator.Util;
+
+import OraclePerformanceEstimator.JobProfileContainer;
 import org.apache.spark.scheduler.SparkListenerStageSubmitted;
 import org.apache.spark.scheduler.StageInfo;
 import org.apache.spark.sql.execution.SparkPlanInfo;
@@ -6,7 +9,6 @@ import scala.collection.JavaConverters;
 import scala.collection.Seq;
 
 import java.util.ArrayList;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -20,6 +22,13 @@ public class StageTypeClassifier {
 
     public static StageTypeClassifier.Type getStageType(SparkListenerStageSubmitted submitted) {
         StageTypeClassifier.Type type = StageTypeClassifier.Type.UNKNOWN;
+
+        // Check if there is a query associated with this
+        if(submitted.properties().containsKey(JobProfileContainer.ROOT_EXECUTION_ID)) {
+            type = StageTypeClassifier.Type.SQL;
+        }
+
+        // determine type based on RDDs
         List<RDDInfo> rddInfos =  JavaConverters.seqAsJavaList(submitted.stageInfo().rddInfos());
         for (var rdd : rddInfos) {
             // check if scope is defined
@@ -31,10 +40,6 @@ public class StageTypeClassifier {
             }
         }
 
-        // Check if there is a query associated with this
-        if(submitted.properties().containsKey(JobProfileContainer.ROOT_EXECUTION_ID)) {
-            type = StageTypeClassifier.Type.SQL;
-        }
         return type;
     }
 

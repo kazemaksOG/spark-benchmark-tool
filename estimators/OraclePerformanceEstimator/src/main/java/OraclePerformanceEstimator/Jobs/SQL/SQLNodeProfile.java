@@ -1,3 +1,5 @@
+package OraclePerformanceEstimator.Jobs.SQL;
+
 import org.apache.spark.sql.execution.SparkPlanInfo;
 
 import java.util.LinkedList;
