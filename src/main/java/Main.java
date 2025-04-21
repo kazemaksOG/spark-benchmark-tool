@@ -45,10 +45,13 @@ public class Main {
 
         Dataset<Row> parquet = spark.read().parquet("resources/fhvhv_tripdata_2024-08.parquet");
         parquet.printSchema();
-        Dataset<Row> mappedParquet = parquet.groupBy("hvfhs_license_num").agg(sum("tips")).alias("sum");
 
-        mappedParquet.explain();
-        Row[] collected = (Row[]) mappedParquet.take(10);
+        parquet.write().partitionBy("PULocationID").parquet("resources/tripdata-partitionBy-PULocationID");
+
+//        Dataset<Row> mappedParquet = parquet.groupBy("hvfhs_license_num").agg(sum("tips")).alias("sum");
+//
+//        mappedParquet.explain();
+//        Row[] collected = (Row[]) mappedParquet.take(10);
 
         System.out.println("END\n\n\n");
 //        Thread.sleep(1000000);
