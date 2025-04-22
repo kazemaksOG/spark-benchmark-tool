@@ -3,6 +3,7 @@ package OraclePerformanceEstimator.Jobs.SQL;
 import OraclePerformanceEstimator.JobProfileContainer;
 import OraclePerformanceEstimator.Jobs.JobProfile;
 import OraclePerformanceEstimator.Util.StageTypeClassifier;
+import org.apache.spark.scheduler.JobRuntime;
 import org.apache.spark.scheduler.StageInfo;
 import org.apache.spark.sql.execution.SparkPlanInfo;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLAdaptiveExecutionUpdate;
@@ -22,8 +23,8 @@ public class SqlJobProfile extends JobProfile {
     private List<Integer> sqlNodeIds;
 
 
-    public SqlJobProfile(SparkListenerSQLExecutionStart event) {
-        super(event.executionId());
+    public SqlJobProfile(SparkListenerSQLExecutionStart event, long jobGroupId) {
+        super(event.executionId(), jobGroupId);
 
         // get jobclass from properties
         Properties prop = event.sparkPlanInfo().properties();
@@ -105,7 +106,7 @@ public class SqlJobProfile extends JobProfile {
 
     // For Oracle Jobs
     public SqlJobProfile(long jobId, String jobClass, long realRuntime) {
-        super(jobId);
+        super(jobId, JobRuntime.JOB_INVALID_ID());
         super.setJobClass(jobClass);
         super.setRealRuntime(realRuntime);
 

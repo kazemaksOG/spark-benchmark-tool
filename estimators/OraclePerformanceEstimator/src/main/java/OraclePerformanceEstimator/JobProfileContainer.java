@@ -18,14 +18,20 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicLong;
 
 import static OraclePerformanceEstimator.Jobs.JobProfile.DEFAULT_JOB_CLASS;
 import static OraclePerformanceEstimator.Jobs.JobProfile.DEFAULT_STAGE_RUNTIME;
 
 public class JobProfileContainer {
 
+    private static AtomicLong nextJobGroupId = new AtomicLong(0);
+
     public static final String ROOT_EXECUTION_ID = "spark.sql.execution.root.id";
     public static final String JOB_CLASS_PROPERTY = "job.class";
+
+    private static final String DEFAULT_JOB_GROUP = "DEFAULT";
+    private static final String JOB_GROUP_PROPERTY = "stage.runtime";
 
 
 
@@ -33,6 +39,7 @@ public class JobProfileContainer {
     private final Map<Integer, SqlJobProfile> sqlIdToJobProfile;
     private final Map<Integer, JobProfile> stageIdToJobProfile;
     private final Map<Long, SqlJobProfile> executionIdToJobProfile;
+    private final Map<String, Long> jobGroupToJobGroupId;
     private final Map<String, LinkedList<JobProfile>> jobClassToJobProfiles;
 
     private static final JobRuntime DEFAULT_JOB_RUNTIME = new JobRuntime(JobRuntime.JOB_INVALID_ID(), DEFAULT_STAGE_RUNTIME);
@@ -42,6 +49,7 @@ public class JobProfileContainer {
         stageIdToJobProfile = new ConcurrentHashMap<>();
         jobClassToJobProfiles = new ConcurrentHashMap<>();
         executionIdToJobProfile = new ConcurrentHashMap<>();
+        jobGroupToJobGroupId = new ConcurrentHashMap<>();
         setupOracle();
     }
 
@@ -93,7 +101,7 @@ public class JobProfileContainer {
         long estimatedRuntime = totalRuntime / jobCount;
         //update job estimated runtime
         jobProfile.updateEstimatedRuntime(estimatedRuntime);
-        return new JobRuntime(jobProfile.getJobId(), estimatedRuntime);
+        return new JobRuntime(jobProfile.getJobGroupId(), estimatedRuntime);
 
     }
 
@@ -127,7 +135,6 @@ public class JobProfileContainer {
                             totalRuntime += historyStageNode.getRuntime();
                         }
                     }
-
                 }
             }
 
@@ -213,9 +220,13 @@ public class JobProfileContainer {
         System.out.println("####### stage submitted: " + stageId);
 
         String jobClass = stageEvent.properties().getProperty(JOB_CLASS_PROPERTY, DEFAULT_JOB_CLASS);
+        String jobGroup = stageEvent.properties().getProperty(JOB_GROUP_PROPERTY, DEFAULT_JOB_GROUP);
+        long jobGroupId = jobGroupToJobGroupId.computeIfAbsent(jobGroup, group -> nextJobGroupId.getAndIncrement());
+
         StageTypeClassifier.Type stageType = StageTypeClassifier.getStageType(stageEvent);
         System.out.println("####### stage type: " + stageType);
         System.out.println("####### job class: " + jobClass);
+        System.out.println("####### jobGroupId: " + jobGroupId + " associated with: " + jobGroup);
         // Based on stage class, add mapping from the stage to its corresponding profile
         switch(stageType) {
             case SQL -> {
@@ -236,7 +247,7 @@ public class JobProfileContainer {
             }
             default -> {
                 // Assume this is a single stage job if no query associated
-                JobProfile profile = new SingleStageJobProfile(stageInfo, stageType, jobClass);
+                JobProfile profile = new SingleStageJobProfile(stageInfo, stageType, jobClass, jobGroupId);
                 stageIdToJobProfile.putIfAbsent(stageId, profile);
                 jobClassToJobProfiles.computeIfAbsent(profile.getJobClass(), key -> new LinkedList<>()).add(profile);
             }
@@ -261,7 +272,10 @@ public class JobProfileContainer {
     }
 
     public void handleSparkListenerSQLExecutionStart(SparkListenerSQLExecutionStart sqlEvent) {
-        SqlJobProfile jobProfile = new SqlJobProfile(sqlEvent);
+        String jobGroup = sqlEvent.sparkPlanInfo().properties().getProperty(JOB_GROUP_PROPERTY, DEFAULT_JOB_GROUP);
+        long jobGroupId = jobGroupToJobGroupId.computeIfAbsent(jobGroup, group -> nextJobGroupId.getAndIncrement());
+
+        SqlJobProfile jobProfile = new SqlJobProfile(sqlEvent, jobGroupId);
         for(int sqlId : jobProfile.getSqlNodeIds()) {
             sqlIdToJobProfile.put(sqlId, jobProfile);
         }

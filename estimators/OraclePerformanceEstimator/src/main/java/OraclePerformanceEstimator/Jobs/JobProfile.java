@@ -10,12 +10,14 @@ public abstract class JobProfile {
     public static final String DEFAULT_JOB_CLASS = "UNCLASSIFIED";
 
     private long jobId;
+    private long jobGroupId;
     private String jobClass = DEFAULT_JOB_CLASS;
     private Optional<Long> realRuntime = Optional.empty();
     private Optional<Long> inputSize = Optional.empty();
     private long estimatedRuntime = DEFAULT_STAGE_RUNTIME;
-    public JobProfile(long jobId) {
+    public JobProfile(long jobId, long jobGroupId) {
         this.jobId = jobId;
+        this.jobGroupId = jobGroupId;
     }
 
     public long getRuntime() {
@@ -23,6 +25,9 @@ public abstract class JobProfile {
     }
     public long getJobId() {
         return jobId;
+    }
+    public long getJobGroupId() {
+        return jobGroupId;
     }
     public String getJobClass() {
         return jobClass;

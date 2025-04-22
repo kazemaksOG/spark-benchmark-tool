@@ -15,9 +15,9 @@ public class SingleStageJobProfile extends JobProfile {
     private static final long DEFAULT_PARALLELIZE_TIME = 200L;
     private StageInfo stageInfo;
 
-    public SingleStageJobProfile(StageInfo stageInfo, StageTypeClassifier.Type stageType, String jobClass) {
+    public SingleStageJobProfile(StageInfo stageInfo, StageTypeClassifier.Type stageType, String jobClass, long jobGroupId) {
         // Single stage profiles do not have job they associate with, hence do not have a global identifier
-        super(JobRuntime.JOB_INVALID_ID());
+        super(JobRuntime.JOB_INVALID_ID(), jobGroupId);
         super.setJobClass(jobClass);
 
         this.stageInfo = stageInfo;
