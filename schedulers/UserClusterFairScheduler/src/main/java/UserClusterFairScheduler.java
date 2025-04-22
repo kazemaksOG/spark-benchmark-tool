@@ -150,7 +150,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
          * @param expectedRuntime
          * @param tm
          */
-        public synchronized void addStage(long expectedStageRuntime, JobRuntime jobRuntime, TaskSetManager tm) {
+        public synchronized void addStage(long expectedStageRuntime, JobRuntime jobRuntime, TaskSetManager tm, long currentTime) {
             // compute initial virtualDeadline
             long virtualDeadline;
             // check if job already exists
@@ -165,12 +165,18 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             // stage finish time is based on stage runtime
             long stageFinishTime = this.virtualTime + expectedStageRuntime;
             UserStage stage = new UserStage(virtualDeadline, stageFinishTime, expectedStageRuntime, tm);
+            activeStages.add(stage);
+
+            // update the deadline of this stage
+            int activeStagesSize = this.activeStages.size();
+            double stageShare = this.share / activeStagesSize;
+
+            stage.updateDeadline(this.virtualTime, currentTime, stageShare);
 
             System.out.println("######## User:" + name + " adding stage stage: " + tm.stageId() +
                     " with deadline: " + convertReadableTime(virtualDeadline) +
                     "stage stage finish time: " + convertReadableTime(stageFinishTime));
 
-            activeStages.add(stage);
         }
     }
 
@@ -300,7 +306,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             }
 
             // add the stage to the user
-            addingUser.addStage(expectedStageRuntime, jobRuntime, taskSetManager);
+            addingUser.addStage(expectedStageRuntime, jobRuntime, taskSetManager, currentTime);
         }
 
         System.out.println("######## INFO_CHECK: time taken for scheudling " + (System.currentTimeMillis() - currentTime));
