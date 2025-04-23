@@ -12,11 +12,13 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         long jobId;
         long virtualDeadline;
         long previousCurrentTime;
+        long startVirtualTime;
         List<TaskSetManager> activeStages;
 
         Job(long virtualTime, long currentTime, JobRuntime initialJobRuntime) {
             this.jobId = initialJobRuntime.id();
-            this.virtualDeadline = virtualTime + initialJobRuntime.time();
+            this.startVirtualTime = virtualTime;
+            this.virtualDeadline = this.startVirtualTime + initialJobRuntime.time();
             this.previousCurrentTime = currentTime;
 
             this.activeStages = new ArrayList<>();
@@ -73,6 +75,9 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         }
 
 
+        public void updateJobDeadline(long time) {
+            this.virtualDeadline = this.startVirtualTime + time;
+        }
     }
 
     class User {
@@ -192,25 +197,28 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
          */
         public void addStage(JobRuntime jobRuntime, TaskSetManager tm, long currentTime) {
             Job currentJob;
-            boolean[] jobShareUpdate = new boolean[] {false};
+            boolean jobShareUpdate = false;
             // check if job id is valid
             if (jobRuntime.id() != JobRuntime.JOB_INVALID_ID()) {
                 // Add stage to an existing job or make a new job
-                currentJob = this.jobIdToJob.computeIfAbsent(jobRuntime.id(),
-                        jobId -> {
-                            jobShareUpdate[0] = true;
-                            return createAndAddJob(currentTime, jobRuntime);});
+                if(this.jobIdToJob.containsKey(jobRuntime.id())) {
+                    currentJob = this.jobIdToJob.get(jobRuntime.id());
+                    // update jobs deadline, with a more recent estimate
+                    currentJob.updateJobDeadline(jobRuntime.time());
+                } else {
+                    jobShareUpdate = true;
+                    currentJob = this.jobIdToJob.put(jobRuntime.id(), createAndAddJob(currentTime, jobRuntime));
+                }
 
             } else {
                 // If id is invalid, job has no profile, hence we treat it as a 1 stage job.
-                jobShareUpdate[0] = true;
+                jobShareUpdate = true;
                 currentJob = createAndAddJob(currentTime, jobRuntime);
-
             }
 
             double jobShare = this.share / this.activeJobs.size();
             // if shares changed, update all jobs, otherwise just current job
-            if(jobShareUpdate[0]) {
+            if(jobShareUpdate) {
                 this.activeJobs.forEach(job -> job.updateDeadlines(this.virtualTime, currentTime, jobShare));
             }
             // create a stage and add to the corresponding job
