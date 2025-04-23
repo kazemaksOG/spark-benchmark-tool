@@ -228,7 +228,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
 
             System.out.println("######## User:" + name + " adding stage stage: " + tm.stageId() +
-                    " with deadline: " + convertReadableTime(currentJob.virtualDeadline));
+                    " with deadline: " + convertReadableTime(currentJob.virtualDeadline) + " with runtime: " + jobRuntime.time());
 
         }
     }

@@ -12,7 +12,8 @@ import java.util.Optional;
 import static OraclePerformanceEstimator.Util.StageTypeClassifier.Type.PARALLELIZE;
 
 public class SingleStageJobProfile extends JobProfile {
-    private static final long DEFAULT_PARALLELIZE_TIME = 200L;
+    // we set it slightly higher, so that future jobs can take it and schedule it appropriately
+    private static final long DEFAULT_PARALLELIZE_TIME = 5000L;
     private StageInfo stageInfo;
 
     public SingleStageJobProfile(StageInfo stageInfo, StageTypeClassifier.Type stageType, String jobClass, long jobGroupId) {

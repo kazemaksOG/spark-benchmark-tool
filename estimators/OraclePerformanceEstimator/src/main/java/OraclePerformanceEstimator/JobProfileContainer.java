@@ -88,6 +88,8 @@ public class JobProfileContainer {
         long jobCount = 0L;
         for(JobProfile historyProfile : jobClassToJobProfiles.computeIfAbsent(jobProfile.getJobClass(), key -> new LinkedList<>())) {
             if(historyProfile.isFinished()) {
+                System.out.println("##### INFO: using jobgroup:" + historyProfile.getJobGroupId());
+                System.out.println("##### INFO: runtime:" + historyProfile.getRuntime());
                 jobCount++;
                 totalRuntime += historyProfile.getRuntime();
             }
@@ -99,6 +101,7 @@ public class JobProfileContainer {
             return DEFAULT_JOB_RUNTIME;
         }
         long estimatedRuntime = totalRuntime / jobCount;
+        System.out.println("###### INFO: estimatedRuntime: " + estimatedRuntime + " for job " + jobProfile.getJobId());
         //update job estimated runtime
         jobProfile.updateEstimatedRuntime(estimatedRuntime);
         return new JobRuntime(jobProfile.getJobGroupId(), estimatedRuntime);

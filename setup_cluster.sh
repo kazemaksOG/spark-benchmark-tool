@@ -68,7 +68,7 @@ if [[ "$DEPLOY_OUTPUT" == MASTER_NODE:* ]]; then
     if [ -n "$MASTER_ADDR" ]; then
         MASTER="spark://$MASTER_ADDR:7077"
         PWD=$(pwd)
-        printf "Deployment successful. First ssh to master node with: \n\n   ssh $MASTER_ADDR\n\n Then go to current dir \n\n    cd $PWD \n\n Then run the other script: \n\n  source ./run_all_benchmarks.sh $MASTER $RESERVATION_ID\n"
+        printf "Deployment successful. First ssh to master node with: \n\n   ssh $MASTER_ADDR\n\n Then go to current dir \n\n    cd $PWD \n\n Then run the other script: \n\n  source ./run_all_benchmarks.sh $MASTER $RESERVATION_ID &> output.txt\n"
     else
         echo "Error: Master Node URL is empty!"
         return 1
