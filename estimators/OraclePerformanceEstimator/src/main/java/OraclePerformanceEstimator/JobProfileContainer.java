@@ -31,7 +31,7 @@ public class JobProfileContainer {
     public static final String JOB_CLASS_PROPERTY = "job.class";
 
     private static final String DEFAULT_JOB_GROUP = "DEFAULT";
-    private static final String JOB_GROUP_PROPERTY = "stage.runtime";
+    private static final String JOB_GROUP_PROPERTY = "spark.jobGroup.id";
 
 
 
@@ -61,18 +61,18 @@ public class JobProfileContainer {
                 new LinkedList<>(List.of(new SqlJobProfile(
                         JobRuntime.JOB_INVALID_ID(),
                         "jobs.implementations.ShortOperation",
-                        20000L))));
+                        3000L))));
         jobClassToJobProfiles.put(
                 "jobs.implementations.LongOperation",
                 new LinkedList<>(List.of(new SqlJobProfile(
                         JobRuntime.JOB_INVALID_ID(),
                         "jobs.implementations.LongOperation",
-                        235740L))));
+                        70740L))));
         jobClassToJobProfiles.put("jobs.implementations.SuperShortOperation",
                 new LinkedList<>(List.of(new SqlJobProfile(
                         JobRuntime.JOB_INVALID_ID(),
                         "jobs.implementations.SuperShortOperation",
-                        4000L))));
+                        1000L))));
     }
 
     public JobRuntime getJobRuntime(int stageId) {

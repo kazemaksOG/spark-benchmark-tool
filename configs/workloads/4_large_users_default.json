@@ -4,7 +4,8 @@
     "workloads": [
       {
         "workloadName": "long_job",
-        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+	"inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
+
         "inputType": "PARQUET",
         "className": "jobs.implementations.LongOperation",
         "totalIterations": 4,
@@ -21,7 +22,7 @@
     "workloads": [
       {
         "workloadName": "long_job",
-        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+	"inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.LongOperation",
         "totalIterations": 4,
@@ -38,7 +39,7 @@
     "workloads": [
       {
         "workloadName": "long_job",
-        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+	"inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.LongOperation",
         "totalIterations": 4,
@@ -55,7 +56,7 @@
     "workloads": [
       {
         "workloadName": "long_job",
-        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+	"inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.LongOperation",
         "totalIterations": 4,
