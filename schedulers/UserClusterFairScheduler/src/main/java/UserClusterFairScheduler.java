@@ -207,7 +207,8 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
                     currentJob.updateJobDeadline(jobRuntime.time());
                 } else {
                     jobShareUpdate = true;
-                    currentJob = this.jobIdToJob.put(jobRuntime.id(), createAndAddJob(currentTime, jobRuntime));
+                    currentJob = createAndAddJob(currentTime, jobRuntime);
+                    this.jobIdToJob.put(jobRuntime.id(), currentJob);
                 }
 
             } else {
