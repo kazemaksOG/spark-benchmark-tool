@@ -22,7 +22,7 @@
   "warmup": [
     {
       "workloadName": "warmup big",
-      "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+      "inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
       "inputType": "PARQUET",
       "className": "jobs.implementations.LongOperation",
       "totalIterations": 2,
@@ -34,7 +34,7 @@
     },
     {
       "workloadName": "warmup supersmall",
-      "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+      "inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
       "inputType": "PARQUET",
       "className": "jobs.implementations.SuperShortOperation",
       "totalIterations": 2,
@@ -46,7 +46,7 @@
     },
     {
       "workloadName": "warmup small",
-      "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+      "inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
       "inputType": "PARQUET",
       "className": "jobs.implementations.ShortOperation",
       "totalIterations": 2,
