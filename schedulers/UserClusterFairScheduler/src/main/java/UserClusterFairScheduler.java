@@ -36,7 +36,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             // find the user in active users, or create it
             return this.activeUsers.computeIfAbsent(userName, mapUserName -> {
                 System.out.println("######## New user: " + mapUserName);
-                User newUser = new User(mapUserName);
+                User newUser = new User(mapUserName, this.globalVirtualTime);
                 // adding it to ordered list
                 this.orderedUsers.add(newUser);
                 return newUser;
@@ -104,20 +104,23 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
     class Job implements Comparable<Job> {
         long jobId;
-        long startUserVirtualTime;
-        long userVirtualDeadline;
         long jobRuntime;
+
+        long startUserVirtualTime;
+
+        long userVirtualDeadline;
         long globalVirtualDeadline;
         List<TaskSetManager> activeStages;
 
         Job(long userVirtualTime, JobRuntime initialJobRuntime) {
             this.jobId = initialJobRuntime.id();
-            this.startUserVirtualTime = userVirtualTime;
             this.jobRuntime = initialJobRuntime.time();
-            this.userVirtualDeadline = this.startUserVirtualTime + initialJobRuntime.time();
 
+            this.startUserVirtualTime = userVirtualTime;
 
+            // set deadlines
             this.globalVirtualDeadline = 0;
+            this.userVirtualDeadline = this.startUserVirtualTime + initialJobRuntime.time();
 
             this.activeStages = new ArrayList<>();
         }
@@ -176,12 +179,14 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
         String name;
         long userVirtualTime;
+        long globalVirtualStartTime;
         HashMap<Long, Job> jobIdToJob = new HashMap<>();
         TreeSet<Job> activeJobs;
 
-        User(String name) {
+        User(String name, long globalVirtualTime) {
             this.name = name;
             this.userVirtualTime = 0;
+            this.globalVirtualStartTime = globalVirtualTime;
 
             this.jobIdToJob = new HashMap<>();
             this.activeJobs = new TreeSet<>();
@@ -223,6 +228,10 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
                     // advance virtual time based on amount of current shares
                     this.userVirtualTime += (long)(realTimeSpent * jobShare);
                     previousCurrentTime = jobRealFinishTime;
+
+                    // advance user job virtual start time
+                    this.globalVirtualStartTime += job.jobRuntime;
+                    System.out.println("##### INFO: advancing globalStartTime for user: " + name + "globalStartTime:" + this.globalVirtualStartTime );
                     // remove the finished job and recalculate share
                     jobIterator.remove();
                     jobAmount--;
@@ -266,20 +275,28 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             }
 
             // Update global deadlines of jobs
-            this.updateDeadlines(globalVirtualTime);
+            this.updateDeadlines();
 
             System.out.println("######## User:" + name + " adding stage stage: " + tm.stageId() + " globalVirtualTime: " + globalVirtualTime +
-                    " with global deadline: " + currentJob.getGlobalVirtualDeadline() + " with runtime: " + jobRuntime.time());
+                    " with global deadline: " + currentJob.getGlobalVirtualDeadline() + "with global start time: " + this.globalVirtualStartTime + " with runtime: " + jobRuntime.time());
 
         }
 
-        private void updateDeadlines(long globalVirtualTime) {
-            // keep track of the global virtual time as we go through jobs
-            long currentGlobalVirtualTime = globalVirtualTime;
-            for (Job job : activeJobs) {
+        private void updateDeadlines() {
+            // check if not empty
+            Iterator<Job> jobIterator = this.activeJobs.iterator();
+            if(!jobIterator.hasNext()) return;
+
+            // the first jobs takes the globalVirtualTime from when the user
+            // started + all the finished job times combined
+            Job firstJob = jobIterator.next();
+            firstJob.updateGlobalDeadlines(this.globalVirtualStartTime);
+            long currentGlobalVirtualTime = firstJob.getGlobalVirtualDeadline();
+            // jobs finish one after another, so we chain their deadlines
+            while (jobIterator.hasNext()) {
+                Job job = jobIterator.next();
                 job.updateGlobalDeadlines(currentGlobalVirtualTime);
                 currentGlobalVirtualTime = job.getGlobalVirtualDeadline();
-
             }
         }
 
