@@ -322,7 +322,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             // Since TreeSet uses comparator for also checking if elements are equal, we dont want to overwrite elements
             // with the same latest virtual deadlines
             if(priority == 0) {
-                return Long.compare(this.hashCode(), otherUser.hashCode());
+                return this.name.compareTo(otherUser.name);
             }
             return priority;
         }
