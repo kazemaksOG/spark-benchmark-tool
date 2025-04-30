@@ -40,6 +40,7 @@ get_framework_registry().framework("spark").add_version(SparkFrameworkVersion(<V
 ```
 export $SPARK_HOME=$(pwd)
 ./build/mvn install:install-file -Dfile=$SPARK_HOME/core/target/scala-2.12/spark-core_2.12-3.5.5.jar -DgroupId=org.apache.spark -DartifactId=spark-core_2.12 -Dversion=3.5.5-custom -Dpackaging=jar
+./build/mvn install:install-file -Dfile=$SPARK_HOME/sql/core/target/scala-2.12/spark-sql_2.12-3.5.5.jar -DgroupId=org.apache.spark -DartifactId=spark-sql_2.12 -Dversion=3.5.5-custom -Dpackaging=jar
 ```
 5. Compile the benchmarking tool and schedulers using `compile_mvn.sh`. May need to modify the mvn location at the top of the script.
 ```
