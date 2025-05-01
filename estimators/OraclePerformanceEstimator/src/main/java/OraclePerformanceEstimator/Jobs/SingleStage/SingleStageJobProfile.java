@@ -51,6 +51,7 @@ public class SingleStageJobProfile extends JobProfile {
     public void updateStageCompletion(int stageId) {
         // Only update if not already completed
         if(this.isFinished()) {
+            System.out.println("####### ERROR: job profile is finished:" + stageInfo.stageId());
             return;
         }
 
@@ -60,6 +61,8 @@ public class SingleStageJobProfile extends JobProfile {
         }
 
         TaskMetrics stageMetrics = stageInfo.taskMetrics();
+
+        System.out.println("####### INFO: stage completed:" + stageInfo.stageId() + " task runtime metrics: " + stageMetrics.executorRunTime());
 
         this.setRealRuntime(stageMetrics.executorRunTime());
         this.setInputSize(stageMetrics.inputMetrics().bytesRead());

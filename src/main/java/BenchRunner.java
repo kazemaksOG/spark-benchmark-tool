@@ -2,6 +2,7 @@ import com.google.gson.Gson;
 import config.Config;
 import config.User;
 import config.Workload;
+import jobs.UdfContainer;
 import org.apache.spark.api.java.JavaSparkContext;
 import org.apache.spark.sql.RuntimeConfig;
 import org.apache.spark.sql.SparkSession;
@@ -54,6 +55,9 @@ public class BenchRunner {
 
             // print executor info
             log_executor_data(spark);
+
+            // register UDFS
+            UdfContainer.registerUdfs(spark);
 
             runUserBenchmark(spark, config, benchNameFile);
 

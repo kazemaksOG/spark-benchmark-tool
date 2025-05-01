@@ -1,0 +1,53 @@
+[
+    {
+      "user": "user1_loop100",
+      "workloads": [
+        {
+          "workloadName": "loop100",
+	  "inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
+          "inputType": "PARQUET",
+          "className": "jobs.implementations.udf.Loop100",
+          "totalIterations": 3,
+          "startTimeMs": "100",
+          "poissonRateInMinutes": 0,
+          "frequency": "SEQ",
+          "params": {
+          }
+        }
+      ]
+    },
+    {
+      "user": "user2_loop1000",
+      "workloads": [
+        {
+          "workloadName": "loop1000",
+	  "inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
+          "inputType": "PARQUET",
+          "className": "jobs.implementations.udf.Loop1000",
+          "totalIterations": 3,
+          "startTimeMs": "200",
+          "poissonRateInMinutes": 0,
+          "frequency": "SEQ",
+          "params": {
+          }
+        }
+      ]
+    },
+    {
+      "user": "user3_loop500",
+      "workloads": [
+        {
+          "workloadName": "loop500",
+	  "inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
+          "inputType": "PARQUET",
+          "className": "jobs.implementations.udf.Loop500",
+          "totalIterations": 3,
+          "startTimeMs": "150",
+          "poissonRateInMinutes": 0,
+          "frequency": "SEQ",
+          "params": {
+          }
+        }
+      ]
+    }
+  ]
