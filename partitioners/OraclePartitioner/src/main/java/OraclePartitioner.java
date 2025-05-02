@@ -21,7 +21,7 @@ import java.util.List;
 public class OraclePartitioner implements CustomPartitioner{
     HashMap<String, Long> jobClassToTaskAmount;
 
-    OraclePartitioner() {
+    public OraclePartitioner() {
         jobClassToTaskAmount = new HashMap<>();
 
         jobClassToTaskAmount.put("jobs.implementations.udf.Loop1000", 222L);
@@ -29,9 +29,6 @@ public class OraclePartitioner implements CustomPartitioner{
         jobClassToTaskAmount.put("jobs.implementations.udf.Loop100", 40L);
 
         jobClassToTaskAmount.put("jobs.implementations.udf.Loop20", 16L);
-
-
-
     }
 
 
