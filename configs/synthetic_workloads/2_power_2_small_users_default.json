@@ -3,7 +3,7 @@
     "user": "user1_power",
     "workloads": [
       {
-        "workloadName": "short_job_1",
+        "workloadName": "loop100_1",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
@@ -15,7 +15,7 @@
         }
       },
       {
-        "workloadName": "short_job_2",
+        "workloadName": "loop100_2",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
@@ -27,7 +27,7 @@
         }
       },
       {
-        "workloadName": "short_job_3",
+        "workloadName": "loop100_3",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
@@ -39,7 +39,7 @@
         }
       },
       {
-        "workloadName": "short_job_4",
+        "workloadName": "loop100_4",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
@@ -56,7 +56,7 @@
     "user": "user2_power",
     "workloads": [
       {
-        "workloadName": "short_job_1",
+        "workloadName": "loop100_1",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
@@ -68,7 +68,7 @@
         }
       },
       {
-        "workloadName": "short_job_2",
+        "workloadName": "loop100_2",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
@@ -80,7 +80,7 @@
         }
       },
       {
-        "workloadName": "short_job_3",
+        "workloadName": "loop100_3",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
@@ -92,7 +92,7 @@
         }
       },
       {
-        "workloadName": "short_job_4",
+        "workloadName": "loop100_4",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
@@ -109,7 +109,7 @@
     "user": "user3_small",
     "workloads": [
       {
-        "workloadName": "short_job_1",
+        "workloadName": "loop100_1",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
@@ -126,7 +126,7 @@
     "user": "user4_small",
     "workloads": [
       {
-        "workloadName": "short_job_1",
+        "workloadName": "loop100_1",
         "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",

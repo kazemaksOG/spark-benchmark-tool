@@ -168,7 +168,7 @@ public class JobProfileContainer {
 
             if(jobCount == 0) {
                 System.out.println("######### ERROR: getStageRuntime: No completed history profiles for " + stageId + " with jobclass " + jobProfile.getJobClass() + " with stage node id " + stageNodeIds.toString());
-                return DEFAULT_STAGE_RUNTIME;
+                return jobProfile.getRuntime();
             }
             long estimatedRuntime = totalRuntime / jobCount;
 

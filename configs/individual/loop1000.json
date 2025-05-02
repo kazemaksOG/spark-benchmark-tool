@@ -1,0 +1,19 @@
+[
+  {
+    "user": "individual loop1000",
+    "workloads": [
+      {
+        "workloadName": "loop1000",
+        "inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.udf.Loop1000",
+        "totalIterations": 2,
+        "startTimeMs": "0",
+        "poissonRateInMinutes": 0,
+        "frequency": "SEQ",
+        "params": {
+        }
+      }
+    ]
+  }
+]

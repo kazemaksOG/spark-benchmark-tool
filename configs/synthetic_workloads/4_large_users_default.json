@@ -3,7 +3,7 @@
     "user": "user1_big",
     "workloads": [
       {
-        "workloadName": "long_job",
+        "workloadName": "loop1000",
 	"inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
 
         "inputType": "PARQUET",
@@ -21,7 +21,7 @@
     "user": "user2_big",
     "workloads": [
       {
-        "workloadName": "long_job",
+        "workloadName": "loop1000",
 	"inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop1000",
@@ -38,7 +38,7 @@
     "user": "user3_big",
     "workloads": [
       {
-        "workloadName": "long_job",
+        "workloadName": "loop1000",
 	"inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop1000",
@@ -55,7 +55,7 @@
     "user": "user4_big",
     "workloads": [
       {
-        "workloadName": "long_job",
+        "workloadName": "loop1000",
 	"inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop1000",
