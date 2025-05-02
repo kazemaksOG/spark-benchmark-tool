@@ -1,10 +1,10 @@
-package OraclePerformanceEstimator;
+package HistoricPerformanceEstimator;
 
-import OraclePerformanceEstimator.Jobs.JobProfile;
-import OraclePerformanceEstimator.Jobs.SQL.SqlJobProfile;
-import OraclePerformanceEstimator.Jobs.SQL.StageNode;
-import OraclePerformanceEstimator.Jobs.SingleStage.SingleStageJobProfile;
-import OraclePerformanceEstimator.Util.StageTypeClassifier;
+import HistoricPerformanceEstimator.Jobs.JobProfile;
+import HistoricPerformanceEstimator.Jobs.SQL.SqlJobProfile;
+import HistoricPerformanceEstimator.Jobs.SQL.StageNode;
+import HistoricPerformanceEstimator.Jobs.SingleStage.SingleStageJobProfile;
+import HistoricPerformanceEstimator.Util.StageTypeClassifier;
 import org.apache.spark.scheduler.JobRuntime;
 import org.apache.spark.scheduler.SparkListenerStageCompleted;
 import org.apache.spark.scheduler.SparkListenerStageSubmitted;
@@ -20,8 +20,8 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static OraclePerformanceEstimator.Jobs.JobProfile.DEFAULT_JOB_CLASS;
-import static OraclePerformanceEstimator.Jobs.JobProfile.DEFAULT_STAGE_RUNTIME;
+import static HistoricPerformanceEstimator.Jobs.JobProfile.DEFAULT_STAGE_RUNTIME;
+import static HistoricPerformanceEstimator.Jobs.JobProfile.DEFAULT_JOB_CLASS;
 
 public class JobProfileContainer {
 
@@ -50,55 +50,8 @@ public class JobProfileContainer {
         jobClassToJobProfiles = new ConcurrentHashMap<>();
         executionIdToJobProfile = new ConcurrentHashMap<>();
         jobGroupToJobGroupId = new ConcurrentHashMap<>();
-        setupOracle();
     }
 
-
-    private void setupOracle() {
-        // Add job runtimes
-        jobClassToJobProfiles.put(
-                "jobs.implementations.ShortOperation",
-                new LinkedList<>(List.of(new SqlJobProfile(
-                        JobRuntime.JOB_INVALID_ID(),
-                        "jobs.implementations.ShortOperation",
-                        15933L))));
-        jobClassToJobProfiles.put(
-                "jobs.implementations.LongOperation",
-                new LinkedList<>(List.of(new SqlJobProfile(
-                        JobRuntime.JOB_INVALID_ID(),
-                        "jobs.implementations.LongOperation",
-                        136486L))));
-        jobClassToJobProfiles.put("jobs.implementations.SuperShortOperation",
-                new LinkedList<>(List.of(new SqlJobProfile(
-                        JobRuntime.JOB_INVALID_ID(),
-                        "jobs.implementations.SuperShortOperation",
-                        2671L))));
-
-
-        jobClassToJobProfiles.put("jobs.implementations.udf.Loop1000",
-                new LinkedList<>(List.of(new SqlJobProfile(
-                        JobRuntime.JOB_INVALID_ID(),
-                        "jobs.implementations.udf.Loop1000",
-                        111115L))));
-        jobClassToJobProfiles.put("jobs.implementations.udf.Loop500",
-                new LinkedList<>(List.of(new SqlJobProfile(
-                        JobRuntime.JOB_INVALID_ID(),
-                        "jobs.implementations.udf.Loop500",
-                        57115L))));
-
-        jobClassToJobProfiles.put("jobs.implementations.udf.Loop100",
-                new LinkedList<>(List.of(new SqlJobProfile(
-                        JobRuntime.JOB_INVALID_ID(),
-                        "jobs.implementations.udf.Loop100",
-                        26926L))));
-
-        jobClassToJobProfiles.put("jobs.implementations.udf.Loop20",
-                new LinkedList<>(List.of(new SqlJobProfile(
-                        JobRuntime.JOB_INVALID_ID(),
-                        "jobs.implementations.udf.Loop20",
-                        1523L))));
-
-    }
 
     public JobRuntime getJobRuntime(int stageId) {
         JobProfile jobProfile = stageIdToJobProfile.get(stageId);
@@ -277,6 +230,7 @@ public class JobProfileContainer {
                 // Assume this is a single stage job if no query associated
                 JobProfile profile = new SingleStageJobProfile(stageInfo, stageType, jobClass, jobGroupId);
                 stageIdToJobProfile.putIfAbsent(stageId, profile);
+                jobClassToJobProfiles.computeIfAbsent(profile.getJobClass(), key -> new LinkedList<>()).add(profile);
             }
         }
     }
@@ -347,6 +301,7 @@ public class JobProfileContainer {
 
         // Add class to jobs
         jobProfile.setJobClass(jobClass);
+        jobClassToJobProfiles.computeIfAbsent(jobClass, key -> new LinkedList<>()).add(jobProfile);
         // update job profile with stage info
         jobProfile.updateStageNodes(stageInfo);
 

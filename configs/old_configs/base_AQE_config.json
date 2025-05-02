@@ -1,0 +1,56 @@
+{
+  "name": "base configuration used for all benchmarks",
+  "description": "",
+  "holdThread": false,
+  "sparkConfig": {
+    "spark.eventLog.enabled":  true,
+    "spark.driver.cores": 8,
+    "spark.cores.max": "32",
+    "spark.executor.memory": "4g",
+
+    "spark.sql.adaptive.enabled": true,
+    "spark.sql.adaptive.coalescePartitions.enabled": true,
+    "spark.sql.adaptive.coalescePartitions.parallelismFirst": false,
+    "spark.sql.adaptive.coalescePartitions.minPartitionSize": "20mb",
+    "spark.sql.adaptive.advisoryPartitionSizeInBytes": "100mb"
+  },
+  "warmup": [
+    {
+      "workloadName": "warmup big",
+      "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+      "inputType": "PARQUET",
+      "className": "jobs.implementations.LongOperation",
+      "totalIterations": 2,
+      "startTimeMs": "0",
+      "poissonRateInMinutes": 0,
+      "frequency": "SEQ",
+      "params": {
+      }
+    },
+    {
+      "workloadName": "warmup supersmall",
+      "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+      "inputType": "PARQUET",
+      "className": "jobs.implementations.SuperShortOperation",
+      "totalIterations": 2,
+      "startTimeMs": "0",
+      "poissonRateInMinutes": 0,
+      "frequency": "SEQ",
+      "params": {
+      }
+    },
+    {
+      "workloadName": "warmup small",
+      "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+      "inputType": "PARQUET",
+      "className": "jobs.implementations.ShortOperation",
+      "totalIterations": 2,
+      "startTimeMs": "0",
+      "poissonRateInMinutes": 0,
+      "frequency": "SEQ",
+      "params": {
+      }
+    }
+  ],
+  "users": []
+}

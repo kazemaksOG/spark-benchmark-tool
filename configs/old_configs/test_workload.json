@@ -1,0 +1,20 @@
+[
+  {
+    "user": "user1 big",
+    "workloads": [
+      {
+        "workloadName": "job 1",
+        "inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.LongOperation",
+        "totalIterations": 1,
+        "startTimeMs": "100",
+        "poissonRateInMinutes": 0,
+        "frequency": "PARA",
+        "partitioning": "NONE",
+        "params": {
+        }
+      }
+    ]
+  }
+]

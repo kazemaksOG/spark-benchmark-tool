@@ -91,6 +91,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
                 if(this.activeUsers.remove(minUser.name) == null) {
                     System.out.println("####### ERROR: User " + minUser.name + " is already removed from hashmap");
                 }
+                System.out.println("INFO: removing user " + minUser.name + " from hashmap");
                 userIterator.remove();
             }
 
@@ -137,6 +138,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         public void updateGlobalDeadlines(long globalVirtualTime) {
             // update all stages and remove the ones that have finished physically
             this.globalVirtualDeadline = globalVirtualTime + this.jobRuntime;
+            System.out.println("####### INFO: global deadline for : " + this.jobId + " with runtime : " + this.jobRuntime + " global virtual time : " + globalVirtualTime + " globalVirtualDeadline : " + this.globalVirtualDeadline);
             activeStages.removeIf(stage -> this.updateDeadline(stage, this.globalVirtualDeadline));
         }
 
@@ -164,7 +166,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             // Since TreeSet uses comparator for also checking if elements are equal, we dont want to overwrite elements
             // with the same virtual deadlines
             if(priority == 0) {
-              return Long.compare(this.hashCode(), otherJob.hashCode());
+              return Long.compare(this.jobId, otherJob.jobId);
             }
             return priority;
         }

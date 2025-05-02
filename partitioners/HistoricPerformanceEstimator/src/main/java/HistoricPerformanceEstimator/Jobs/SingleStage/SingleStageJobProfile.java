@@ -1,15 +1,11 @@
-package OraclePerformanceEstimator.Jobs.SingleStage;
+package HistoricPerformanceEstimator.Jobs.SingleStage;
 
-import OraclePerformanceEstimator.Jobs.JobProfile;
-import OraclePerformanceEstimator.Jobs.SQL.StageNode;
-import OraclePerformanceEstimator.Util.StageTypeClassifier;
+import HistoricPerformanceEstimator.Jobs.JobProfile;
+import HistoricPerformanceEstimator.Util.StageTypeClassifier;
 import org.apache.spark.executor.TaskMetrics;
 import org.apache.spark.scheduler.JobRuntime;
 import org.apache.spark.scheduler.StageInfo;
 
-import java.util.Optional;
-
-import static OraclePerformanceEstimator.Util.StageTypeClassifier.Type.PARALLELIZE;
 
 public class SingleStageJobProfile extends JobProfile {
     // we set it slightly higher, so that future jobs can take it and schedule it appropriately
