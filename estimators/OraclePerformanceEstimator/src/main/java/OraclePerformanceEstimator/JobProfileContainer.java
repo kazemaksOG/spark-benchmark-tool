@@ -61,18 +61,37 @@ public class JobProfileContainer {
                 new LinkedList<>(List.of(new SqlJobProfile(
                         JobRuntime.JOB_INVALID_ID(),
                         "jobs.implementations.ShortOperation",
-                        3000L))));
+                        15933L))));
         jobClassToJobProfiles.put(
                 "jobs.implementations.LongOperation",
                 new LinkedList<>(List.of(new SqlJobProfile(
                         JobRuntime.JOB_INVALID_ID(),
                         "jobs.implementations.LongOperation",
-                        70740L))));
+                        136486L))));
         jobClassToJobProfiles.put("jobs.implementations.SuperShortOperation",
                 new LinkedList<>(List.of(new SqlJobProfile(
                         JobRuntime.JOB_INVALID_ID(),
                         "jobs.implementations.SuperShortOperation",
-                        1000L))));
+                        2671L))));
+
+
+        jobClassToJobProfiles.put("jobs.implementations.udf.Loop1000",
+                new LinkedList<>(List.of(new SqlJobProfile(
+                        JobRuntime.JOB_INVALID_ID(),
+                        "jobs.implementations.udf.Loop1000",
+                        111115L))));
+        jobClassToJobProfiles.put("jobs.implementations.udf.Loop500",
+                new LinkedList<>(List.of(new SqlJobProfile(
+                        JobRuntime.JOB_INVALID_ID(),
+                        "jobs.implementations.udf.Loop500",
+                        57115L))));
+
+        jobClassToJobProfiles.put("jobs.implementations.udf.Loop100",
+                new LinkedList<>(List.of(new SqlJobProfile(
+                        JobRuntime.JOB_INVALID_ID(),
+                        "jobs.implementations.udf.Loop100",
+                        26926L))));
+
     }
 
     public JobRuntime getJobRuntime(int stageId) {

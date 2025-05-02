@@ -1,0 +1,70 @@
+[
+  {
+    "user": "user1_supersmall",
+    "workloads": [
+      {
+        "workloadName": "supershort_job",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.udf.Loop20",
+        "totalIterations": 100,
+        "startTimeMs": "100",
+        "poissonRateInMinutes": 0,
+        "frequency": "PARA",
+        "params": {
+        }
+      }
+    ]
+  },
+  {
+    "user": "user2_supersmall",
+    "workloads": [
+      {
+        "workloadName": "supershort_job",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.udf.Loop20",
+        "totalIterations": 100,
+        "startTimeMs": "200",
+        "poissonRateInMinutes": 0,
+        "frequency": "PARA",
+        "params": {
+        }
+      }
+    ]
+  },
+  {
+    "user": "user3_supersmall",
+    "workloads": [
+      {
+        "workloadName": "supershort_job",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.udf.Loop20",
+        "totalIterations": 100,
+        "startTimeMs": "300",
+        "poissonRateInMinutes": 0,
+        "frequency": "PARA",
+        "params": {
+        }
+      }
+    ]
+  },
+  {
+    "user": "user4_supersmall",
+    "workloads": [
+      {
+        "workloadName": "supershort_job",
+        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputType": "PARQUET",
+        "className": "jobs.implementations.udf.Loop20",
+        "totalIterations": 100,
+        "startTimeMs": "400",
+        "poissonRateInMinutes": 0,
+        "frequency": "PARA",
+        "params": {
+        }
+      }
+    ]
+  }
+]

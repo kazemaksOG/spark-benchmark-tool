@@ -95,7 +95,7 @@ public class StageNode {
          }
 
          TaskMetrics stageMetrics = stageInfo.get().taskMetrics();
-
+         System.out.println("####### INFO: stage completed:" + stageInfo.get().stageId() + " task runtime metrics: " + stageMetrics.executorRunTime());
          this.realRuntime = Optional.of(stageMetrics.executorRunTime());
          this.inputSize = Optional.of(stageMetrics.inputMetrics().bytesRead());
     }
