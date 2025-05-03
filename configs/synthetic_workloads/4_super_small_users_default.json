@@ -4,7 +4,7 @@
     "workloads": [
       {
         "workloadName": "loop20",
-        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop20",
         "totalIterations": 100,
@@ -21,7 +21,7 @@
     "workloads": [
       {
         "workloadName": "loop20",
-        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop20",
         "totalIterations": 100,
@@ -38,7 +38,7 @@
     "workloads": [
       {
         "workloadName": "loop20",
-        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop20",
         "totalIterations": 100,
@@ -55,7 +55,7 @@
     "workloads": [
       {
         "workloadName": "loop20",
-        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop20",
         "totalIterations": 100,

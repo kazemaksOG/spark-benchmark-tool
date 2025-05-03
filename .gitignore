@@ -16,3 +16,4 @@ gather_and_clean_results.sh
 
 # png
 *.png
+*.csv
