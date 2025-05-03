@@ -1,10 +1,11 @@
+from os.path import isfile
 import pandas as pd
 import argparse
 import requests
 import json
 import os
-import statistics
 import numpy as np
+import pickle
 import math
 from datetime import datetime
 from copy import copy
@@ -22,14 +23,44 @@ import matplotlib.patches as patches
 EXECUTOR_AMOUNT = 8
 CORES_PER_EXEC = 4
 
-RUN_PATH="./data/performance_test_5/target"
+RUN_PATH="./data/performance_test_24/target"
 BENCH_PATH=f"{RUN_PATH}/bench_outputs"
 
 # history server address
 APPS_URL="http://localhost:18080/api/v1/applications"
 
 
+SCHEDULERS = [
+    "CUSTOM_FAIR",
+    "CUSTOM_RANDOM",
+    # "CUSTOM_SHORT",
+    "DEFAULT_FIFO",
+    "DEFAULT_FAIR",
+    # "AQE_CUSTOM_FAIR",
+    # "AQE_CUSTOM_RANDOM",
+    # "AQE_CUSTOM_SHORT",
+    # "AQE_DEFAULT_FIFO",
+    # "AQE_DEFAULT_FAIR",
+    "CUSTOM_CLUSTERFAIR",
+    "CUSTOM_USERCLUSTERFAIR_PARTITIONER", # has to be before regular because of string comparison
+    "CUSTOM_USERCLUSTERFAIR",
 
+]
+
+CONFIGS = [
+    "2_large_2_small_users",
+    "4_large_users",
+    "2_power_2_small_users",
+    "4_super_small_users",
+    "test_workload",
+]
+
+
+JOB_TYPES = [
+"loop20_",
+"loop100_",
+"loop1000_",
+]
 
 # Numerical constants
 GIGA = 1000000000
@@ -45,38 +76,11 @@ JOBGROUP_BIN_DIST=0.3
 STAGE_DIST=0.1
 
 
-SCHEDULERS = [
-    "CUSTOM_FAIR",
-    "CUSTOM_RANDOM",
-    "CUSTOM_SHORT",
-    "DEFAULT_FIFO",
-    "DEFAULT_FAIR",
-    "AQE_CUSTOM_FAIR",
-    "AQE_CUSTOM_RANDOM",
-    "AQE_CUSTOM_SHORT",
-    "AQE_DEFAULT_FIFO",
-    "AQE_DEFAULT_FAIR",
+##################### HELPER FUNCTIONS #######################################
 
-]
-
-CONFIGS = [
-    "2_large_2_small_users",
-    "4_large_users",
-    "2_power_2_small_users",
-    "4_super_small_users"
-]
-
-PARTITIONS = [
-    "default",
-    "coalesce",
-    "repartition"
-]
-
-
-# names usually are bench_NAME_CONFIG_PARTITION
+# names usually are bench_NAME_CONFIG_EXTRA
 def get_human_name(filename):
     name = ""
-    partition = ""
     config = ""
 
     index = len("bench_")
@@ -94,16 +98,17 @@ def get_human_name(filename):
             config = conf
             break
 
-    # move index forawrd
-    index += len(config) + len("_")
+    return name, config
 
-    for part in PARTITIONS:
-        if filename[index:].startswith(part):
-            partition = part
-            break
+def get_job_type(name):
+    for job_type in JOB_TYPES:
+        if job_type in name:
+            return JOB_TYPES
+    return "unclassified job"
 
+def get_average(arr):
+    return np.mean(arr)
 
-    return name, partition, config
 
 def get_worst_10_percent(arr):
     arr = np.array(arr)
@@ -111,6 +116,11 @@ def get_worst_10_percent(arr):
     top_10_percent = np.partition(arr, -n)[-n:]
     return np.mean(top_10_percent)
 
+def get_worst_1_percent(arr):
+    arr = np.array(arr)
+    n = max(1, int(len(arr) * 0.01))
+    top_1_percent = np.partition(arr, -n)[-n:]
+    return np.mean(top_1_percent)
 
 def find_closest_to_0(nums):
     candidate = 0 
@@ -118,11 +128,6 @@ def find_closest_to_0(nums):
         candidate+=1 
     return candidate 
 
-def calculate_unfairness(slowdowns, mean):
-    unfairness_sum = sum([(slow - mean)**2 for slow in slowdowns])
-
-
-    return unfairness_sum / len(slowdowns)
 
 def round_sig(x, sig=4):
     if x == 0:
@@ -130,12 +135,12 @@ def round_sig(x, sig=4):
     return round(x, sig - int(math.floor(math.log10(abs(x)))) - 1)
 
 
+########################## MAIN CLASSES ############################################
 class Benchmark:
-    def __init__(self, scheduler, partitioning, config, users_template):
+    def __init__(self, scheduler, config, users_template):
         self.scheduler = scheduler
-        self.partitioning = partitioning
         self.config = config
-        self.app_name = f"bench_{scheduler}_{config}_{partitioning}"
+        self.app_name = f"bench_{scheduler}_{config}"
         self.runs = []
         self.users_template = users_template
         self.get_event_data()
@@ -154,19 +159,19 @@ class Benchmark:
         app_ids = [entry["id"] for entry in data if entry["name"].startswith(self.app_name)]
         print(f"Found app ids for {self.app_name}:")
         print(app_ids)
-        for app_id in app_ids:
-            run = Run(self.scheduler, self.partitioning, self.config, np.copy(self.users_template))
+        for i, app_id in enumerate(app_ids):
+            run = Run(self.scheduler, self.config, np.copy(self.users_template), i)
             run.get_event_data(app_id)
             self.runs.append(run)
 
 
 class Run:
-    def __init__(self, scheduler, partitioning, config, users):
+    def __init__(self, scheduler, config, users, iteration):
         self.scheduler = scheduler
-        self.partitioning = partitioning
         self.config = config
-        self.app_name = f"{scheduler}_{config}_{partitioning}"
+        self.app_name = f"{scheduler}_{config}"
         self.users = users
+        self.iteration = iteration
 
     def get_cpu_time(self):
         return sum([execution.total_time for user in self.users for jobgroup in user.jobgroups for execution in jobgroup.executor_load])
@@ -175,7 +180,6 @@ class Run:
         return write_time / self.get_cpu_time()
 
     def get_event_data(self, app_id):
-        
         
         # get executor details
 
@@ -239,15 +243,14 @@ class User:
                 jobs = user_jobgroup_map[jobgroup_key]
 
                 # Assume user only does one type of job
-                base_runtime = next((self.base_runtimes[base] for base in self.base_runtimes if base in jobgroup_key ))
+                base_runtime = 1
+                if len(self.base_runtimes) != 0:
+                    base_runtime = next((self.base_runtimes[base] for base in self.base_runtimes if base in jobgroup_key ))
                 jobgroup = JobGroup(jobgroup_key, jobs, base_runtime)
                 # get all jobgroup event data and then append
                 jobgroup.get_event_data(app_id)
                 self.jobgroups.append(jobgroup)
                 
-
-
-
 
         else:
             raise Exception(f"Error requesting eventlog data for jobs: {response.status_code}")
@@ -258,12 +261,11 @@ class User:
 class JobGroup:
     def __init__(self, name, jobs, expected_runtime_s):
         self.name = name
+        self.job_type = get_job_type(name)
         self.jobs = jobs
         self.expected_runtime = expected_runtime_s
         
 
-
-    def get_event_data(self, app_id):
 
         self.stages = []
         self.task_ids = []
@@ -271,6 +273,13 @@ class JobGroup:
         self.task_scheduler_delays = []
         self.start = None
         self.end = None
+
+        self.total_time = None
+        self.slowdown = None
+        self.proportional_slowdown = None
+
+    def get_event_data(self, app_id):
+
         for job_id in self.jobs:
             response = requests.get(f"{APPS_URL}/{app_id}/jobs/{job_id}")
             if response.status_code != 200:
@@ -416,14 +425,15 @@ class Bin:
 
 def create_table(args):
 
-    benches = get_benchmarks(args.scheduler, args.config, args.part)
+    benches = get_benchmarks(args.scheduler, args.config)
 
     
-    unfairness_rows = []
     for bench in benches:
-        worst_user_slowdown = 0
+        run_rows = []
         for iteration, run in enumerate(bench.runs):
             print(f"Getting row elements for {run.app_name}, iteration: {iteration}")
+
+            run_row = []
 
             # get start times
             start_time = min(jobgroup.start for user in run.users for jobgroup in user.jobgroups)
@@ -431,166 +441,266 @@ def create_table(args):
 
             # general metrics
             total_time = (end_time - start_time)
-            cpu_utilization = run.get_cpu_time() / (total_time * CORES_PER_EXEC * EXECUTOR_AMOUNT)
+            cpu_time = run.get_cpu_time() 
             write_ratio = run.get_write_ratio()
-            avg_completion_time = sum([jobgroup.total_time for user in run.users for jobgroup in user.jobgroups]) / len([jobgroup.total_time for user in run.users for jobgroup in user.jobgroups])
             total_task_scheduler_delay = sum(delay for user in run.users for jobgroup in user.jobgroups for delay in jobgroup.task_scheduler_delays)
+
+            run_row.extend([
+                ("Config", run.config),
+                ("Scheduler", run.config),
+                ("Iteration", run.iteration),
+                ("total time", total_time), 
+                ("cpu time", cpu_time),
+                ("write to cpu ratio", write_ratio),
+                ("task scheduler delay", total_task_scheduler_delay),
+                ("peak JVM", run.peak_JVM_memory),
+                ("total shuffle read", run.total_shuffle_read),
+                ("total shuffle write", run.total_shuffle_write),
+            ])
+
+
 
             # slowdown metrics
             all_slowdowns = [jobgroup.slowdown for user in run.users for jobgroup in user.jobgroups]
             all_proportional_slowdowns = [jobgroup.proportional_slowdown for user in run.users for jobgroup in user.jobgroups]
 
-            slowdown_mean = statistics.mean(all_slowdowns) 
-            slowdown_worst_10_percent = get_worst_10_percent(all_slowdowns) 
-            proportional_slowdown_mean = statistics.mean(all_proportional_slowdowns)
-            proportional_slowdown_worst_10_percent = get_worst_10_percent(all_proportional_slowdowns)
 
-            # unfairness
-            unfairness = calculate_unfairness(all_slowdowns, slowdown_mean)
-            proportional_unfairness = calculate_unfairness(all_proportional_slowdowns, proportional_slowdown_mean)
-            worst_user_unfairness = 0
+            avg_rt = get_average([jobgroup.total_time for user in run.users for jobgroup in user.jobgroups])
+            slowdown_avg = get_average(all_slowdowns) 
+            slowdown_avg_10 = get_worst_10_percent(all_slowdowns) 
+            proportional_slowdown_avg = get_average(all_proportional_slowdowns)
+            proportional_slowdown_avg_10 = get_worst_10_percent(all_proportional_slowdowns)
+            
+
+            run_row.extend([
+                ("average response time", avg_rt),
+
+                ("average absolute slowdown", slowdown_avg),
+                ("average absolute slowdown (worst10%)", slowdown_avg_10),
+
+                ("average proportional slowdown", proportional_slowdown_avg),
+                ("average proportional slowdown (worst10%)", proportional_slowdown_avg_10),
+            ])
+
+            # per job type metrics
+            for job_type in JOB_TYPES:
+                jobs = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups if jobgroup.job_type == job_type]
+                jobs_slowdown =  [jobgroup.slowdown for user in run.users for jobgroup in user.jobgroups if jobgroup.job_type == job_type]
+                jobs_prop_slowdown =  [jobgroup.proportional_slowdown for user in run.users for jobgroup in user.jobgroups if jobgroup.job_type == job_type]
+
+
+                jobs_rt_avg = get_average(jobs)
+                jobs_rt_avg_10 = get_worst_10_percent(jobs)
+                jobs_rt_avg_1 = get_worst_1_percent(jobs)
+
+
+                jobs_slowdown_avg = get_average(jobs_slowdown)
+                jobs_slowdown_avg_10 = get_worst_10_percent(jobs_slowdown)
+                jobs_slowdown_avg_1 = get_worst_1_percent(jobs_slowdown)
+
+
+                jobs_prop_slowdown_avg = get_average(jobs_prop_slowdown)
+                jobs_prop_slowdown_avg_10 = get_worst_10_percent(jobs_prop_slowdown)
+                jobs_prop_slowdown_avg_1 = get_worst_1_percent(jobs_prop_slowdown)
+
+                run_row.extend([
+                    (f"{job_type} average response time", jobs_rt_avg),
+                    (f"{job_type} average response time (worst 10%)", jobs_rt_avg_10),
+                    (f"{job_type} average response time (worst 1%)", jobs_rt_avg_1),
+
+                    (f"{job_type} average absolute slowdown", jobs_slowdown_avg),
+                    (f"{job_type} average absolute slowdown (worst 10%)", jobs_slowdown_avg_10),
+                    (f"{job_type} average absolute slowdown (worst 1%)", jobs_slowdown_avg_1),
+
+                    (f"{job_type} average proportional slowdown", jobs_prop_slowdown_avg),
+                    (f"{job_type} average proportional slowdown (worst 10%)", jobs_prop_slowdown_avg_10),
+                    (f"{job_type} average proportional slowdown (worst 1%)", jobs_prop_slowdown_avg_1),
+                ])
+
 
 
             for user in run.users:
                 # calculate user metrics
-                user_proportional_slowdowns = [jobgroup.slowdown for jobgroup in user.jobgroups]
-                worst_user_unfairness = max(worst_user_unfairness, calculate_unfairness(user_proportional_slowdowns, proportional_slowdown_mean))
-                
-
-            unfairness_rows.append([run.config, 
-                                    run.partitioning, 
-                                    run.scheduler, 
-                                    iteration,
-                                    unfairness, 
-                                    proportional_unfairness,
-                                    worst_user_unfairness,
-                                    slowdown_mean, 
-                                    slowdown_worst_10_percent,
-                                    proportional_slowdown_worst_10_percent, 
-                                    total_time,
-                                    avg_completion_time,
-                                    cpu_utilization,
-                                    write_ratio,
-                                    total_task_scheduler_delay,
-                                    run.peak_JVM_memory,
-                                    run.total_shuffle_read,
-                                    run.total_shuffle_write])
-
-    df = pd.DataFrame(unfairness_rows, columns=["Config", 
-                                                "Partitioning", 
-                                                "Scheduler", 
-                                                "Iteration",
-                                                "Unfairness", 
-                                                "Proportional unfairness", 
-                                                "Worst user unfairness",
-                                                "Slowdown Mean",
-                                                "Slowdown Worst 10%",
-                                                "Proportional Worst 10%",
-                                                "Total time",
-                                                "Average complete time",
-                                                "CPU utilization",
-                                                "Proportion spent writing",
-                                                "Total task scheduler delay",
-                                                "Peak memory",
-                                                "Shuffle reads",
-                                                "Shuffle write"])
-    df = df.sort_values(by=["Config", "Partitioning", "Unfairness"])
-    df.to_excel(f"unfairness.xlsx")
+                user_runtime = [jobgroup.total_time for jobgroup in user.jobgroups]
+                user_slowdown =  [jobgroup.slowdown for jobgroup in user.jobgroups ]
+                user_prop_slowdown =  [jobgroup.proportional_slowdown for jobgroup in user.jobgroups]
 
 
+                user_rt_avg = get_average(user_runtime)
+                user_rt_avg_10 = get_worst_10_percent(user_runtime)
+                user_rt_avg_1 = get_worst_1_percent(user_runtime)
+
+
+                user_slowdown_avg = get_average(user_slowdown)
+                user_slowdown_avg_10 = get_worst_10_percent(user_slowdown)
+                user_slowdown_avg_1 = get_worst_1_percent(user_slowdown)
+
+
+                user_prop_slowdown_avg = get_average(user_prop_slowdown)
+                user_prop_slowdown_avg_10 = get_worst_10_percent(user_prop_slowdown)
+                user_prop_slowdown_avg_1 = get_worst_1_percent(user_prop_slowdown)
+
+                run_row.extend([
+                    (f"{user.name} average response time", user_rt_avg),
+                    (f"{user.name} average response time (worst 10%)", user_rt_avg_10),
+                    (f"{user.name} average response time (worst 1%)", user_rt_avg_1),
+
+                    (f"{user.name} average absolute slowdown", user_slowdown_avg),
+                    (f"{user.name} average absolute slowdown (worst 10%)", user_slowdown_avg_10),
+                    (f"{user.name} average absolute slowdown (worst 1%)", user_slowdown_avg_1),
+
+                    (f"{user.name} average proportional slowdown", user_prop_slowdown_avg),
+                    (f"{user.name} average proportional slowdown (worst 10%)", user_prop_slowdown_avg_10),
+                    (f"{user.name} average proportional slowdown (worst 1%)", user_prop_slowdown_avg_1),
+                ])
+
+
+            # append the row
+            run_rows.append(run_row)
+
+        columns = [col[0] for col in run_rows[0]]
+        values = [[val[1] for val in row] for row in run_rows]
+        df = pd.DataFrame(values, columns=columns)
+
+        df = df.sort_values(by=["Config", "Scheduler"])
+        df.to_csv(f"{bench.scheduler}_{bench.config}.csv")
 
 
 
 
-def unfairness(args):
 
-    benches = get_benchmarks(args.scheduler, args.config, args.part)
+def cdf(args):
 
-    if args.change_type == "user":
+    benches = get_benchmarks(args.scheduler, args.config)
+
+    if args.change_type == "total":
         for bench in benches:
-            for iteration, run in enumerate(bench.runs):
+            for run in bench.runs:
 
-                all_slowdowns = [jobgroup.slowdown for user in run.users for jobgroup in user.jobgroups]
-                all_proportional_slowdowns = [jobgroup.proportional_slowdown for user in run.users for jobgroup in user.jobgroups]
+                # no need to cmpare baseline to itself
+                if run.scheduler == args.compare_to:
+                    continue
 
-                slowdown_mean = statistics.mean(all_slowdowns) 
-                proportional_slowdown_mean = statistics.mean(all_proportional_slowdowns)
+                all_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups]
+                # all_slowdowns = [jobgroup.slowdown for user in run.users for jobgroup in user.jobgroups]
+                # all_proportional_slowdowns = [jobgroup.proportional_slowdown for user in run.users for jobgroup in user.jobgroups]
+
 
                 # plot data
-                cmap = plt.get_cmap("viridis", len(run.users))
-                user_colors = {user.name: cmap(i) for i, user in enumerate(run.users)}
-                color_array = [user_colors[user.name] for user in run.users]
                 fig, ax = plt.subplots()
-                plot_slowdowns = []
-                plot_labels = []
-                for user in run.users:
-                    user_proportional_slowdowns = [jobgroup.slowdown for jobgroup in user.jobgroups]
-                    user_unfairness = calculate_unfairness(user_proportional_slowdowns, proportional_slowdown_mean)
-                    plot_slowdowns.append(user_proportional_slowdowns)
-                    plot_labels.append(f"{user.name}, {round_sig(user_unfairness, 4)}")
+
+                ax.ecdf(all_rt, label=f"{run.scheduler}")
+                
+                # get data for baseline
+
+                baseline_benches = get_benchmarks(args.compare_to, run.config)
+                print(f"baseline: {args.compare_to}, {run.config}")
+                baseline_run = (baseline_benches[0]).runs[0]
+                print(f"actual: {baseline_run.scheduler}, {baseline_run.config}")
+                baseline_rt = [jobgroup.total_time for user in baseline_run.users for jobgroup in user.jobgroups]
+                ax.ecdf(baseline_rt, label=f"{args.compare_to}")
 
 
-                box = ax.boxplot(plot_slowdowns, tick_labels=plot_labels, patch_artist=True)
-
-                for patch, color in zip(box['boxes'], color_array):
-                    patch.set_facecolor(color)
 
 
-                ax.set_title(f"User unfairness in:{run.app_name}")
-                ax.set_xlabel("Users")
-                ax.set_ylabel("Slowdown")
+                ax.grid(True)
+                ax.legend()
+                ax.set_title(f"Response time CDF :{run.config}")
+                ax.set_xlabel("Response time")
+                ax.set_ylabel("Fraction of jobs")
 
                 if args.show_plot:
                     plt.show()
+
+                filename = f"{run.scheduler}_{run.config}" 
+                fig.savefig(filename + "_rt_cdf.png")
                 plt.close(fig)
                 
 
-    else:
+    elif args.change_type == "user":
         
-        
-        plot_slowdowns = {}
-        plot_labels = {}
         for bench in benches:
-            for iteration, run in enumerate(bench.runs):
+            for run in bench.runs:
 
-                slowdowns = []
-                if args.change_type == "absolute":
-                    slowdowns = [jobgroup.slowdown for user in run.users for jobgroup in user.jobgroups]
-                elif args.change_type == "proportional":
-                    slowdowns = [jobgroup.proportional_slowdown for user in run.users for jobgroup in user.jobgroups]
+                # no need to cmpare baseline to itself
+                if run.scheduler == args.compare_to:
+                    continue
+
+                for user in run.users:
+                    user_rt = [jobgroup.total_time for jobgroup in user.jobgroups]
+
+                    # plot data
+                    fig, ax = plt.subplots()
+
+                    ax.ecdf(user_rt, label=f"{run.scheduler}")
                     
-                if run.config not in plot_slowdowns:
-                    plot_slowdowns[run.config] = []
-                    plot_labels[run.config] = []
-                plot_slowdowns[run.config].append(slowdowns)
-                plot_labels[run.config].append(run.app_name)
+                    # get data for baseline
 
+                    baseline_benches = get_benchmarks(args.compare_to, run.config)
+                    print(f"baseline: {args.compare_to}, {run.config}, {user.name}")
+                    baseline_run = (baseline_benches[0]).runs[0]
+                    baseline_user = [base_user for base_user in baseline_run.users if base_user.name == user.name ][0]
+                    print(f"actual: {baseline_run.scheduler}, {baseline_run.config}, {baseline_user.name}")
+                    baseline_user_rt = [jobgroup.total_time for jobgroup in baseline_user.jobgroups]
+                    ax.ecdf(baseline_user_rt, label=f"{args.compare_to}")
 
-        for key in plot_slowdowns:
-            fig, ax = plt.subplots()
-            slowdowns = plot_slowdowns[key]
-            labels = plot_labels[key]
+                    ax.grid(True)
+                    ax.legend()
+                    ax.set_title(f"Response time CDF :{run.config}, {user.name}")
+                    ax.set_xlabel("Response time")
+                    ax.set_ylabel("Fraction of jobs")
 
-            ax.boxplot(slowdowns)
+                    if args.show_plot:
+                        plt.show()
 
-            ax.set_xticks(range(1, len(labels) + 1))
-            ax.set_xticklabels(labels, rotation=90)
-            ax.set_xlabel("Configurations")
+                    filename = f"{run.scheduler}_{run.config}_{user.name}" 
+                    fig.savefig(filename + "_rt_cdf.png")
+                    plt.close(fig)
+    elif args.change_type == "job":
+        for bench in benches:
+            for run in bench.runs:
 
+                # no need to cmpare baseline to itself
+                if run.scheduler == args.compare_to:
+                    continue
 
-            ax.set_title("Slowdown per configuration")
-            ax.set_ylabel("Slowdown (s)")
-            plt.tight_layout()
-            if args.show_plot:
-                plt.show()
-            plt.close(fig)
+                for job_type in JOB_TYPES:
+                    job_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups if jobgroup.job_type == job_type]
+
+                    # plot data
+                    fig, ax = plt.subplots()
+
+                    ax.ecdf(job_type, label=f"{run.scheduler}")
+                    
+                    # get data for baseline
+
+                    baseline_benches = get_benchmarks(args.compare_to, run.config)
+                    print(f"baseline: {args.compare_to}, {run.config}")
+                    baseline_run = (baseline_benches[0]).runs[0]
+                    print(f"actual: {baseline_run.scheduler}, {baseline_run.config}")
+                    baseline_job_rt = [jobgroup.total_time for user in baseline_run for jobgroup in user.jobgroups if jobgroup.job_type == job_type]
+                    ax.ecdf(baseline_job_rt, label=f"{args.compare_to}")
+
+                    ax.grid(True)
+                    ax.legend()
+                    ax.set_title(f"Response time CDF :{run.config}, {job_type}")
+                    ax.set_xlabel("Response time")
+                    ax.set_ylabel("Fraction of jobs")
+
+                    if args.show_plot:
+                        plt.show()
+
+                    filename = f"{run.scheduler}_{run.config}_{job_type}" 
+                    fig.savefig(filename + "_rt_cdf.png")
+                    plt.close(fig)
                 
+
 
 
 
 def timeline(args):
 
-    benches = get_benchmarks(args.scheduler, args.config, args.part)
+    benches = get_benchmarks(args.scheduler, args.config)
 
     
     for bench in benches:
@@ -636,6 +746,8 @@ def timeline(args):
                     jobgroup_bin.pack_subbins()
                     jobgroup_bin.name = jobgroup.name
 
+                    jobgroup_bin.expected_runtime = jobgroup.expected_runtime
+
                     # add jobgroup to its bin
                     jobgroup_bins.add(jobgroup_bin)
                 jobgroup_bins.pack_subbins()
@@ -653,8 +765,13 @@ def timeline(args):
                         (jobgroup_start_offset, jobgroup_offset), jobgroup_width, jobgroup_height, color=base_color, alpha=0.4, label=f"Jobgroup {jobgroup.name}"
                     ))
 
-                    jobgroup_expected_endtime = jobgroup_start_offset + jobgroup.end - jobgroup.start
-                    axes[1].plot([jobgroup_expected_endtime, jobgroup_expected_endtime], [jobgroup_offset, jobgroup_offset + jobgroup_height],alpha=0.5, color='red', linestyle="--", linewidth=1)
+                    # actual end time
+                    jobgroup_endtime = jobgroup_start_offset + jobgroup.end - jobgroup.start
+                    axes[1].plot([jobgroup_endtime, jobgroup_endtime], [jobgroup_offset, jobgroup_offset + jobgroup_height],alpha=0.5, color='red', linestyle="-", linewidth=2)
+
+                    # expected endtime 
+                    jobgroup_expected_endtime = jobgroup_start_offset + jobgroup.expected_runtime
+                    axes[1].plot([jobgroup_expected_endtime, jobgroup_expected_endtime], [jobgroup_offset, jobgroup_offset + jobgroup_height],alpha=0.5, color='orange', linestyle="-", linewidth=2)
 
                     for stage in jobgroup.subbins:
 
@@ -698,7 +815,7 @@ def timeline(args):
 
 
             # setup executor plot
-            axes[0].set_title(f"{run.scheduler} {iteration}: {run.config}, {run.partitioning}, utilization={run.get_cpu_time() / (total_time * CORES_PER_EXEC * EXECUTOR_AMOUNT)} runtime={total_time}")
+            axes[0].set_title(f"{run.scheduler} {iteration}: {run.config}, utilization={run.get_cpu_time() / (total_time * CORES_PER_EXEC * EXECUTOR_AMOUNT)} runtime={total_time}")
             axes[0].set_ylabel("Core")
             axes[0].set_ylim(CORES_PER_EXEC * EXECUTOR_AMOUNT + 1, -1)
 
@@ -715,18 +832,21 @@ def timeline(args):
             if args.show_plot:
                 plt.show()
 
-            filename = f"{run.scheduler}_{run.config}_{run.partitioning}" 
+            filename = f"{run.scheduler}_{run.config}" 
             fig.savefig(filename + "_user_job_timeline.png")
+            plt.close(fig)
 
 
 
     
+# Get the average of base runtimes, extract the name from workfloadName for identifier
 def get_bench_base(bench_path):
     with open(bench_path, 'r') as file:
         data = json.load(file)
         user = data["users"][0]
         workload = user["workloads"][0]
-        name = workload["workloadName"]
+        # append "_" for delimiting, since some workloads share base name (loop100, loop1000)
+        name = workload["workloadName"] + "_"
 
         results = workload["results"]
         total_times_s = []
@@ -737,7 +857,7 @@ def get_bench_base(bench_path):
             total_times_s.append((start_up + partition + exec) * MS_TO_S)
         
 
-        runtime = statistics.mean(total_times_s)
+        runtime = get_average(total_times_s)
 
         
         return name, runtime
@@ -754,9 +874,19 @@ def get_bench_users(bench_path, base):
         return users
             
 
-def get_benchmarks(isolate_scheduler="", isolate_config="", isolate_partitioning=""):
- 
+def get_benchmarks(isolate_scheduler="", isolate_config=""):
 
+    # see if a previous benchmark data exist
+    data_dump_path = os.path.join(BENCH_PATH, "DATADUMP.data")
+    if os.path.isfile(data_dump_path):
+        print("Loading data: " + data_dump_path)
+        with open(data_dump_path, "rb") as file:
+            benches = pickle.load(file)
+            filtered = [bench for bench in benches if isolate_config in bench.config and isolate_scheduler in bench.scheduler]
+            return filtered
+
+
+    # create benchmarks
     base_runtimes = {}
     for filename in os.listdir(BENCH_PATH):
         file_path = os.path.join(BENCH_PATH, filename)
@@ -770,13 +900,19 @@ def get_benchmarks(isolate_scheduler="", isolate_config="", isolate_partitioning
     for filename in os.listdir(BENCH_PATH):
         file_path = os.path.join(BENCH_PATH, filename)
         if os.path.isfile(file_path) and filename.endswith('.json'):
-            scheduler, partition, config = get_human_name(filename)
-            tup = (scheduler, partition, config)
-            if isolate_scheduler in scheduler and isolate_config in config and isolate_partitioning in partition:
+            scheduler, config = get_human_name(filename)
+            tup = (scheduler, config)
+            if isolate_scheduler in scheduler and isolate_config in config:
                 if tup not in unique_bench:
                     users = get_bench_users(file_path, base_runtimes)
-                    benches.append(Benchmark(scheduler, partition, config, users))
+                    benches.append(Benchmark(scheduler, config, users))
                     unique_bench.append(tup)
+
+    # save data for future runs
+    with open(data_dump_path, "wb") as file:
+        print("Saving data: " + data_dump_path)
+        pickle.dump(benches, file)
+
                     
     return benches
 
@@ -789,7 +925,6 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("Show certain benchmark results")
     parser.add_argument("--scheduler", help="Scheduler to isolate", action="store", default="")
     parser.add_argument("--config", help="Config to isolate", action="store", default="")
-    parser.add_argument("--part", help="Partitioning to isolate", action="store", default="")
     parser.add_argument("--show_plot", help="Shows the plot using matplotlib GUI", action="store_true", default=False)
 
     subparsers = parser.add_subparsers(title="Commands")
@@ -804,12 +939,131 @@ if __name__ == "__main__":
     timeline_parser.set_defaults(func=timeline)
 
 
-    unfairness_parser = subparsers.add_parser("unfairness", help="Create unfairness boxplots")
-    unfairness_parser.add_argument("--change_type", help="Show different type of unfairness metrics. Values: user, proportional, absolute", default="user")
-    unfairness_parser.set_defaults(func=unfairness)
+    cdf_parser = subparsers.add_parser("cdf", help="Create CDFs of response time")
+    cdf_parser.add_argument("--change_type", help="Show different type of cdf metrics. Values: user, total", default="total")
+    cdf_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="DEFAULT_FAIR" )
+    cdf_parser.set_defaults(func=cdf)
+
+
+    # unfairness_parser = subparsers.add_parser("unfairness", help="Create unfairness boxplots")
+    # unfairness_parser.add_argument("--change_type", help="Show different type of unfairness metrics. Values: user, proportional, absolute", default="user")
+    # unfairness_parser.set_defaults(func=unfairness)
 
     
     args = parser.parse_args()
     args.func(args)
    
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+# not used anymore, here for fututre use perhaps
+
+
+
+def unfairness(args):
+
+    benches = get_benchmarks(args.scheduler, args.config)
+
+    if args.change_type == "user":
+        for bench in benches:
+            for iteration, run in enumerate(bench.runs):
+
+                all_slowdowns = [jobgroup.slowdown for user in run.users for jobgroup in user.jobgroups]
+                all_proportional_slowdowns = [jobgroup.proportional_slowdown for user in run.users for jobgroup in user.jobgroups]
+
+                slowdown_mean = get_average(all_slowdowns) 
+                proportional_slowdown_mean = get_average(all_proportional_slowdowns)
+
+                # plot data
+                cmap = plt.get_cmap("viridis", len(run.users))
+                user_colors = {user.name: cmap(i) for i, user in enumerate(run.users)}
+                color_array = [user_colors[user.name] for user in run.users]
+                fig, ax = plt.subplots()
+                plot_slowdowns = []
+                plot_labels = []
+                for user in run.users:
+                    user_proportional_slowdowns = [jobgroup.slowdown for jobgroup in user.jobgroups]
+                    user_unfairness = calculate_unfairness(user_proportional_slowdowns, proportional_slowdown_mean)
+                    plot_slowdowns.append(user_proportional_slowdowns)
+                    plot_labels.append(f"{user.name}, {round_sig(user_unfairness, 4)}")
+
+
+                box = ax.boxplot(plot_slowdowns, tick_labels=plot_labels, patch_artist=True)
+
+                for patch, color in zip(box['boxes'], color_array):
+                    patch.set_facecolor(color)
+
+
+                ax.set_title(f"User unfairness in:{run.app_name}")
+                ax.set_xlabel("Users")
+                ax.set_ylabel("Slowdown")
+
+                if args.show_plot:
+                    plt.show()
+
+                filename = f"{run.scheduler}_{run.config}_" 
+                fig.savefig(filename + "user_fairness.png")
+                plt.close(fig)
+                
+
+    else:
+        
+        
+        plot_slowdowns = {}
+        plot_labels = {}
+        for bench in benches:
+            for iteration, run in enumerate(bench.runs):
+
+                slowdowns = []
+                if args.change_type == "absolute":
+                    slowdowns = [jobgroup.slowdown for user in run.users for jobgroup in user.jobgroups]
+                elif args.change_type == "proportional":
+                    slowdowns = [jobgroup.proportional_slowdown for user in run.users for jobgroup in user.jobgroups]
+                    
+                if run.config not in plot_slowdowns:
+                    plot_slowdowns[run.config] = []
+                    plot_labels[run.config] = []
+                plot_slowdowns[run.config].append(slowdowns)
+                plot_labels[run.config].append(run.app_name)
+
+
+        for key in plot_slowdowns:
+            fig, ax = plt.subplots()
+            slowdowns = plot_slowdowns[key]
+            labels = plot_labels[key]
+
+            ax.boxplot(slowdowns)
+
+            ax.set_xticks(range(1, len(labels) + 1))
+            ax.set_xticklabels(labels, rotation=90)
+            ax.set_xlabel("Configurations")
+
+
+            ax.set_title("Slowdown per configuration")
+            ax.set_ylabel("Slowdown (s)")
+            plt.tight_layout()
+            if args.show_plot:
+                plt.show()
+
+            fig.savefig("user_fairness_amongst_benches.png")
+            plt.close(fig)
+                
+
+
 
