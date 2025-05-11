@@ -23,7 +23,7 @@ import matplotlib.patches as patches
 EXECUTOR_AMOUNT = 8
 CORES_PER_EXEC = 4
 
-RUN_PATH="./data/performance_test_24/target"
+RUN_PATH="./data/performance_test_26/target"
 BENCH_PATH=f"{RUN_PATH}/bench_outputs"
 
 # history server address
@@ -35,6 +35,7 @@ SCHEDULERS = [
     "CUSTOM_RANDOM",
     # "CUSTOM_SHORT",
     "DEFAULT_FIFO",
+    "DEFAULT_FAIR_PARTITIONER",
     "DEFAULT_FAIR",
     # "AQE_CUSTOM_FAIR",
     # "AQE_CUSTOM_RANDOM",
@@ -47,6 +48,13 @@ SCHEDULERS = [
 
 ]
 
+FORMAL_NAME = {
+    "DEFAULT_FAIR": "Fair",
+    "DEFAULT_FAIR_PARTITIONER": "Fair-P",
+    "CUSTOM_CLUSTERFAIR": "U-WFQ",
+    "CUSTOM_USERCLUSTERFAIR_PARTITIONER": "U-WFQ-P",
+}
+
 CONFIGS = [
     "2_large_2_small_users",
     "4_large_users",
@@ -56,6 +64,7 @@ CONFIGS = [
 ]
 
 
+# _ used for delimiter
 JOB_TYPES = [
 "loop20_",
 "loop100_",
@@ -74,6 +83,7 @@ S_TO_NS = 1000000000
 JOBGROUP_BIN_SIZE=5
 JOBGROUP_BIN_DIST=0.3
 STAGE_DIST=0.1
+
 
 
 ##################### HELPER FUNCTIONS #######################################
@@ -103,7 +113,7 @@ def get_human_name(filename):
 def get_job_type(name):
     for job_type in JOB_TYPES:
         if job_type in name:
-            return JOB_TYPES
+            return job_type
     return "unclassified job"
 
 def get_average(arr):
@@ -429,7 +439,9 @@ def create_table(args):
 
     
     for bench in benches:
+
         run_rows = []
+        baseline_benches = get_benchmarks(args.compare_to, bench.config)
         for iteration, run in enumerate(bench.runs):
             print(f"Getting row elements for {run.app_name}, iteration: {iteration}")
 
@@ -554,19 +566,130 @@ def create_table(args):
                     (f"{user.name} average proportional slowdown (worst 1%)", user_prop_slowdown_avg_1),
                 ])
 
+            # compare to fair scheduler
+            deadline_miss = []
+            deadline_gain = []
+            if run.scheduler != args.compare_to:
+                baseline_run = (baseline_benches[0]).runs[0]
+                for user in run.users:
+                    for job_type in JOB_TYPES:
+                        job_deadline_miss = []
+                        job_deadline_gain = []
+                        for jobgroup in user.jobgroups:
+                            if jobgroup.job_type != job_type:
+                                continue
+
+                            baseline_jobgroup = [base_jobgroup for user in baseline_run.users for base_jobgroup in user.jobgroups if base_jobgroup.name == jobgroup.name]
+                            if len(baseline_jobgroup) == 0:
+                                print("skipping: " + jobgroup.name + " for: " + baseline_run.scheduler)
+                                continue
+
+                            baseline_jobgroup = baseline_jobgroup[0]
+                            if jobgroup.end > baseline_jobgroup.end:
+                                deadline_miss.append(jobgroup.end - baseline_jobgroup.end)
+                                job_deadline_miss.append(jobgroup.end - baseline_jobgroup.end)
+                            else:
+                                deadline_gain.append(baseline_jobgroup.end - jobgroup.end)
+                                job_deadline_gain.append(baseline_jobgroup.end - jobgroup.end)
+
+                        job_sum_deadline_miss = sum(job_deadline_miss)
+                        job_avg_deadline_miss = get_average(job_deadline_miss) 
+                        job_avg_10_deadline_miss = get_worst_10_percent(job_deadline_miss)
+                        job_avg_1_deadline_miss = get_worst_1_percent(job_deadline_miss)
+
+
+                        job_sum_deadline_gain = sum(job_deadline_gain)
+                        job_avg_deadline_gain = get_average(job_deadline_gain) 
+                        job_avg_10_deadline_gain = get_worst_10_percent(job_deadline_gain)
+                        job_avg_1_deadline_gain = get_worst_1_percent(job_deadline_gain)
+
+
+                        run_row.extend([
+                            (f"{job_type} Total missed deadline time", job_sum_deadline_miss),
+                            (f"{job_type} Average missed deadline time", job_avg_deadline_miss),
+                            (f"{job_type} Worst 10% missed deadline time", job_avg_10_deadline_miss),
+                            (f"{job_type} Worst 1% missed deadline time", job_avg_1_deadline_miss),
+
+                            (f"{job_type} Total gained deadline time", job_sum_deadline_gain),
+                            (f"{job_type} Average gained deadline time", job_avg_deadline_gain),
+                            (f"{job_type} Worst 10% gained deadline time", job_avg_10_deadline_gain),
+                            (f"{job_type} Worst 1% gained deadline time", job_avg_1_deadline_gain),
+                        ])
+
+                        
+            sum_deadline_miss = sum(deadline_miss)
+            avg_deadline_miss = get_average(deadline_miss) 
+            avg_10_deadline_miss = get_worst_10_percent(deadline_miss)
+            avg_1_deadline_miss = get_worst_1_percent(deadline_miss)
+
+
+            sum_deadline_gain = sum(deadline_gain)
+            avg_deadline_gain = get_average(deadline_gain) 
+            avg_10_deadline_gain = get_worst_10_percent(deadline_gain)
+            avg_1_deadline_gain = get_worst_1_percent(deadline_gain)
+
+            run_row.extend([
+                ("Total missed deadline time", sum_deadline_miss),
+                ("Average missed deadline time", avg_deadline_miss),
+                ("Worst 10% missed deadline time", avg_10_deadline_miss),
+                ("Worst 1% missed deadline time", avg_1_deadline_miss),
+
+                ("Total gained deadline time", sum_deadline_gain),
+                ("Average gained deadline time", avg_deadline_gain),
+                ("Worst 10% gained deadline time", avg_10_deadline_gain),
+                ("Worst 1% gained deadline time", avg_1_deadline_gain),
+            ])
+
+
 
             # append the row
             run_rows.append(run_row)
 
+        print(bench.app_name)
         columns = [col[0] for col in run_rows[0]]
         values = [[val[1] for val in row] for row in run_rows]
         df = pd.DataFrame(values, columns=columns)
 
         df = df.sort_values(by=["Config", "Scheduler"])
-        df.to_csv(f"{bench.scheduler}_{bench.config}.csv")
+
+
+        # make a dir if necessary
+        output_folder = f"{bench.scheduler}_{bench.config}"
+        os.makedirs(output_folder, exist_ok=True)
+
+        df.to_csv(os.path.join(output_folder, f"run_data.csv"))
 
 
 
+
+
+def plot_and_save_cdf(target, baseline, target_name, base_name, folder, output):
+    # plot data
+    fig, ax = plt.subplots()
+
+    ax.ecdf(target, label=f"{target_name}", linestyle="-", color="royalblue")
+
+    ax.ecdf(baseline, label=f"{base_name}", linestyle="--", color="black")
+
+
+    ax.grid(True)
+    ax.legend()
+    # ax.set_title(f"Response time ECDF :{run.config}")
+    ax.set_xlabel("Response time (s)")
+    ax.set_ylabel("Fraction of jobs")
+    ax.set_ylim(ymin=0)
+    ax.set_xlim(xmin=0)
+
+    if args.show_plot:
+        plt.show()
+
+    # make a dir if necessary
+    os.makedirs(folder, exist_ok=True)
+
+    filename = os.path.join(folder, f"{output}.png") 
+    print(f"saving {filename}")
+    fig.savefig(filename)
+    plt.close(fig)
 
 
 def cdf(args):
@@ -586,35 +709,15 @@ def cdf(args):
                 # all_proportional_slowdowns = [jobgroup.proportional_slowdown for user in run.users for jobgroup in user.jobgroups]
 
 
-                # plot data
-                fig, ax = plt.subplots()
-
-                ax.ecdf(all_rt, label=f"{run.scheduler}")
-                
                 # get data for baseline
 
                 baseline_benches = get_benchmarks(args.compare_to, run.config)
-                print(f"baseline: {args.compare_to}, {run.config}")
                 baseline_run = (baseline_benches[0]).runs[0]
-                print(f"actual: {baseline_run.scheduler}, {baseline_run.config}")
                 baseline_rt = [jobgroup.total_time for user in baseline_run.users for jobgroup in user.jobgroups]
-                ax.ecdf(baseline_rt, label=f"{args.compare_to}")
+
+                plot_and_save_cdf(all_rt, baseline_rt, run.scheduler, args.compare_to, f"{run.scheduler}_{run.config}", "overall_rt")
 
 
-
-
-                ax.grid(True)
-                ax.legend()
-                ax.set_title(f"Response time CDF :{run.config}")
-                ax.set_xlabel("Response time")
-                ax.set_ylabel("Fraction of jobs")
-
-                if args.show_plot:
-                    plt.show()
-
-                filename = f"{run.scheduler}_{run.config}" 
-                fig.savefig(filename + "_rt_cdf.png")
-                plt.close(fig)
                 
 
     elif args.change_type == "user":
@@ -629,33 +732,15 @@ def cdf(args):
                 for user in run.users:
                     user_rt = [jobgroup.total_time for jobgroup in user.jobgroups]
 
-                    # plot data
-                    fig, ax = plt.subplots()
-
-                    ax.ecdf(user_rt, label=f"{run.scheduler}")
-                    
                     # get data for baseline
 
                     baseline_benches = get_benchmarks(args.compare_to, run.config)
-                    print(f"baseline: {args.compare_to}, {run.config}, {user.name}")
                     baseline_run = (baseline_benches[0]).runs[0]
                     baseline_user = [base_user for base_user in baseline_run.users if base_user.name == user.name ][0]
-                    print(f"actual: {baseline_run.scheduler}, {baseline_run.config}, {baseline_user.name}")
                     baseline_user_rt = [jobgroup.total_time for jobgroup in baseline_user.jobgroups]
-                    ax.ecdf(baseline_user_rt, label=f"{args.compare_to}")
 
-                    ax.grid(True)
-                    ax.legend()
-                    ax.set_title(f"Response time CDF :{run.config}, {user.name}")
-                    ax.set_xlabel("Response time")
-                    ax.set_ylabel("Fraction of jobs")
+                    plot_and_save_cdf(user_rt, baseline_user_rt, run.scheduler, args.compare_to, f"{run.scheduler}_{run.config}",f"{user.name}_response_time_cdf")
 
-                    if args.show_plot:
-                        plt.show()
-
-                    filename = f"{run.scheduler}_{run.config}_{user.name}" 
-                    fig.savefig(filename + "_rt_cdf.png")
-                    plt.close(fig)
     elif args.change_type == "job":
         for bench in benches:
             for run in bench.runs:
@@ -665,35 +750,22 @@ def cdf(args):
                     continue
 
                 for job_type in JOB_TYPES:
-                    job_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups if jobgroup.job_type == job_type]
+                    job_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups if jobgroup.job_type in job_type]
 
-                    # plot data
-                    fig, ax = plt.subplots()
+                    # if no such job for this benchmark, continue
+                    if len(job_rt) == 0:
+                        continue
 
-                    ax.ecdf(job_type, label=f"{run.scheduler}")
-                    
                     # get data for baseline
 
                     baseline_benches = get_benchmarks(args.compare_to, run.config)
-                    print(f"baseline: {args.compare_to}, {run.config}")
                     baseline_run = (baseline_benches[0]).runs[0]
-                    print(f"actual: {baseline_run.scheduler}, {baseline_run.config}")
-                    baseline_job_rt = [jobgroup.total_time for user in baseline_run for jobgroup in user.jobgroups if jobgroup.job_type == job_type]
-                    ax.ecdf(baseline_job_rt, label=f"{args.compare_to}")
+                    baseline_job_rt = [jobgroup.total_time for user in baseline_run.users for jobgroup in user.jobgroups if jobgroup.job_type == job_type]
 
-                    ax.grid(True)
-                    ax.legend()
-                    ax.set_title(f"Response time CDF :{run.config}, {job_type}")
-                    ax.set_xlabel("Response time")
-                    ax.set_ylabel("Fraction of jobs")
+                    plot_and_save_cdf(job_rt, baseline_job_rt, run.scheduler, args.compare_to, f"{run.scheduler}_{run.config}",f"{job_type}_response_time_cdf")
 
-                    if args.show_plot:
-                        plt.show()
-
-                    filename = f"{run.scheduler}_{run.config}_{job_type}" 
-                    fig.savefig(filename + "_rt_cdf.png")
-                    plt.close(fig)
                 
+
 
 
 
@@ -765,25 +837,29 @@ def timeline(args):
                         (jobgroup_start_offset, jobgroup_offset), jobgroup_width, jobgroup_height, color=base_color, alpha=0.4, label=f"Jobgroup {jobgroup.name}"
                     ))
 
-                    # actual end time
                     jobgroup_endtime = jobgroup_start_offset + jobgroup.end - jobgroup.start
-                    axes[1].plot([jobgroup_endtime, jobgroup_endtime], [jobgroup_offset, jobgroup_offset + jobgroup_height],alpha=0.5, color='red', linestyle="-", linewidth=2)
-
-                    # expected endtime 
                     jobgroup_expected_endtime = jobgroup_start_offset + jobgroup.expected_runtime
-                    axes[1].plot([jobgroup_expected_endtime, jobgroup_expected_endtime], [jobgroup_offset, jobgroup_offset + jobgroup_height],alpha=0.5, color='orange', linestyle="-", linewidth=2)
 
-                    for stage in jobgroup.subbins:
+                    # if job finished faster than expected, we give it a different color and ignore expected runtime
+                    if jobgroup_endtime > jobgroup_expected_endtime:
+                        axes[1].plot([jobgroup_endtime, jobgroup_endtime], [jobgroup_offset, jobgroup_offset + jobgroup_height],alpha=0.5, color='red', linestyle="-", linewidth=2)
+                        axes[1].plot([jobgroup_expected_endtime, jobgroup_expected_endtime], [jobgroup_offset, jobgroup_offset + jobgroup_height],alpha=0.5, color='orange', linestyle="-", linewidth=2)
+                    else:
+                        axes[1].plot([jobgroup_endtime, jobgroup_endtime], [jobgroup_offset, jobgroup_offset + jobgroup_height],alpha=0.5, color='green', linestyle="-", linewidth=2)
 
-                        # to center the stages, add 1, so it ignores the ones on the edges of jobgroup
-                        stage_offset = jobgroup_offset + (jobgroup_height / (jobgroup.max + 1)) * (stage.pos + 1)
-                        stage_start_offset = stage.start - start_time
-                        stage_end_offset = stage.end - start_time
-                        axes[1].plot([stage_start_offset, stage_end_offset], [stage_offset,stage_offset], color='gray', linewidth=2)
-                        axes[1].scatter(stage_start_offset, stage_offset, color='green', s=10, zorder=2)  # Start marker
-                        axes[1].scatter(stage_end_offset, stage_offset, color='red', s=10, zorder=2)  # End marker
-                        if args.show_stage_id:
-                            axes[1].annotate(stage.id, (stage_start_offset,stage_offset), textcoords="offset points", xytext=(1,1), ha='left', fontsize=8, color="black")
+
+                    if args.show_stage:
+                        for stage in jobgroup.subbins:
+
+                            # to center the stages, add 1, so it ignores the ones on the edges of jobgroup
+                            stage_offset = jobgroup_offset + (jobgroup_height / (jobgroup.max + 1)) * (stage.pos + 1)
+                            stage_start_offset = stage.start - start_time
+                            stage_end_offset = stage.end - start_time
+                            axes[1].plot([stage_start_offset, stage_end_offset], [stage_offset,stage_offset], color='gray', linewidth=2)
+                            axes[1].scatter(stage_start_offset, stage_offset, color='green', s=10, zorder=2)  # Start marker
+                            axes[1].scatter(stage_end_offset, stage_offset, color='red', s=10, zorder=2)  # End marker
+                            if args.show_stage_id:
+                                axes[1].annotate(stage.id, (stage_start_offset,stage_offset), textcoords="offset points", xytext=(1,1), ha='left', fontsize=8, color="black")
 
                 # move the y position by the amount of overlapping jobgroup bins
                 y_postion+= JOBGROUP_BIN_SIZE * jobgroup_bins.max
@@ -815,7 +891,7 @@ def timeline(args):
 
 
             # setup executor plot
-            axes[0].set_title(f"{run.scheduler} {iteration}: {run.config}, utilization={run.get_cpu_time() / (total_time * CORES_PER_EXEC * EXECUTOR_AMOUNT)} runtime={total_time}")
+            # axes[0].set_title(f"{run.scheduler} {iteration}: {run.config}, utilization={run.get_cpu_time() / (total_time * CORES_PER_EXEC * EXECUTOR_AMOUNT)} runtime={total_time}")
             axes[0].set_ylabel("Core")
             axes[0].set_ylim(CORES_PER_EXEC * EXECUTOR_AMOUNT + 1, -1)
 
@@ -824,16 +900,24 @@ def timeline(args):
             axes[1].set_ylim(0, y_postion)
             axes[1].set_xlim(0, total_time)
 
-            axes[1].set_xlabel('Time')
-            axes[1].set_ylabel('Events')
+            axes[1].set_xlabel('Time (s)')
+            axes[1].set_ylabel('Jobs')
+            axes[1].set_yticks([]) 
 
             axes[1].grid(True, which='both', axis='x', linestyle='--', color='gray', alpha=0.5)
             fig.tight_layout()
             if args.show_plot:
                 plt.show()
 
-            filename = f"{run.scheduler}_{run.config}" 
-            fig.savefig(filename + "_user_job_timeline.png")
+
+
+            # make a dir if necessary
+            output_folder = f"{run.scheduler}_{run.config}"
+            os.makedirs(output_folder, exist_ok=True)
+
+            filename = os.path.join(output_folder, f"user_job_timeline.png") 
+
+            fig.savefig(filename)
             plt.close(fig)
 
 
@@ -878,11 +962,11 @@ def get_benchmarks(isolate_scheduler="", isolate_config=""):
 
     # see if a previous benchmark data exist
     data_dump_path = os.path.join(BENCH_PATH, "DATADUMP.data")
-    if os.path.isfile(data_dump_path):
+    if os.path.exists(data_dump_path) and os.path.isfile(data_dump_path):
         print("Loading data: " + data_dump_path)
         with open(data_dump_path, "rb") as file:
             benches = pickle.load(file)
-            filtered = [bench for bench in benches if isolate_config in bench.config and isolate_scheduler in bench.scheduler]
+            filtered = [bench for bench in benches if isolate_config in bench.config and (isolate_scheduler == "" or isolate_scheduler == bench.scheduler)]
             return filtered
 
 
@@ -901,6 +985,8 @@ def get_benchmarks(isolate_scheduler="", isolate_config=""):
         file_path = os.path.join(BENCH_PATH, filename)
         if os.path.isfile(file_path) and filename.endswith('.json'):
             scheduler, config = get_human_name(filename)
+            if scheduler == "":
+                continue
             tup = (scheduler, config)
             if isolate_scheduler in scheduler and isolate_config in config:
                 if tup not in unique_bench:
@@ -930,17 +1016,20 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers(title="Commands")
 
     create_table_parser = subparsers.add_parser("create_table", help="Create an excel table that summerizes all results")
+    create_table_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="DEFAULT_FAIR" )
     create_table_parser.set_defaults(func=create_table)
 
     timeline_parser = subparsers.add_parser("timeline", help="Create event timeline images")
+
+    timeline_parser.add_argument("--show_stage", help="Show stage in timeline", action="store_true", default=False)
     timeline_parser.add_argument("--show_stage_id", help="Show stage id in timeline", action="store_true", default=False)
     timeline_parser.add_argument("--show_task_stage_id", help="Show stage id on tasks", action="store_true", default=False)
     timeline_parser.add_argument("--change_type", help="Show tasks in certain type. Values: type, group", action="store", default="group")
     timeline_parser.set_defaults(func=timeline)
 
 
-    cdf_parser = subparsers.add_parser("cdf", help="Create CDFs of response time")
-    cdf_parser.add_argument("--change_type", help="Show different type of cdf metrics. Values: user, total", default="total")
+    cdf_parser = subparsers.add_parser("cdf", help="Create ECDFs of response time")
+    cdf_parser.add_argument("--change_type", help="Show different type of cdf metrics. Values: user, job, total", default="total")
     cdf_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="DEFAULT_FAIR" )
     cdf_parser.set_defaults(func=cdf)
 
@@ -957,113 +1046,6 @@ if __name__ == "__main__":
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# not used anymore, here for fututre use perhaps
-
-
-
-def unfairness(args):
-
-    benches = get_benchmarks(args.scheduler, args.config)
-
-    if args.change_type == "user":
-        for bench in benches:
-            for iteration, run in enumerate(bench.runs):
-
-                all_slowdowns = [jobgroup.slowdown for user in run.users for jobgroup in user.jobgroups]
-                all_proportional_slowdowns = [jobgroup.proportional_slowdown for user in run.users for jobgroup in user.jobgroups]
-
-                slowdown_mean = get_average(all_slowdowns) 
-                proportional_slowdown_mean = get_average(all_proportional_slowdowns)
-
-                # plot data
-                cmap = plt.get_cmap("viridis", len(run.users))
-                user_colors = {user.name: cmap(i) for i, user in enumerate(run.users)}
-                color_array = [user_colors[user.name] for user in run.users]
-                fig, ax = plt.subplots()
-                plot_slowdowns = []
-                plot_labels = []
-                for user in run.users:
-                    user_proportional_slowdowns = [jobgroup.slowdown for jobgroup in user.jobgroups]
-                    user_unfairness = calculate_unfairness(user_proportional_slowdowns, proportional_slowdown_mean)
-                    plot_slowdowns.append(user_proportional_slowdowns)
-                    plot_labels.append(f"{user.name}, {round_sig(user_unfairness, 4)}")
-
-
-                box = ax.boxplot(plot_slowdowns, tick_labels=plot_labels, patch_artist=True)
-
-                for patch, color in zip(box['boxes'], color_array):
-                    patch.set_facecolor(color)
-
-
-                ax.set_title(f"User unfairness in:{run.app_name}")
-                ax.set_xlabel("Users")
-                ax.set_ylabel("Slowdown")
-
-                if args.show_plot:
-                    plt.show()
-
-                filename = f"{run.scheduler}_{run.config}_" 
-                fig.savefig(filename + "user_fairness.png")
-                plt.close(fig)
-                
-
-    else:
-        
-        
-        plot_slowdowns = {}
-        plot_labels = {}
-        for bench in benches:
-            for iteration, run in enumerate(bench.runs):
-
-                slowdowns = []
-                if args.change_type == "absolute":
-                    slowdowns = [jobgroup.slowdown for user in run.users for jobgroup in user.jobgroups]
-                elif args.change_type == "proportional":
-                    slowdowns = [jobgroup.proportional_slowdown for user in run.users for jobgroup in user.jobgroups]
-                    
-                if run.config not in plot_slowdowns:
-                    plot_slowdowns[run.config] = []
-                    plot_labels[run.config] = []
-                plot_slowdowns[run.config].append(slowdowns)
-                plot_labels[run.config].append(run.app_name)
-
-
-        for key in plot_slowdowns:
-            fig, ax = plt.subplots()
-            slowdowns = plot_slowdowns[key]
-            labels = plot_labels[key]
-
-            ax.boxplot(slowdowns)
-
-            ax.set_xticks(range(1, len(labels) + 1))
-            ax.set_xticklabels(labels, rotation=90)
-            ax.set_xlabel("Configurations")
-
-
-            ax.set_title("Slowdown per configuration")
-            ax.set_ylabel("Slowdown (s)")
-            plt.tight_layout()
-            if args.show_plot:
-                plt.show()
-
-            fig.savefig("user_fairness_amongst_benches.png")
-            plt.close(fig)
-                
 
 
 

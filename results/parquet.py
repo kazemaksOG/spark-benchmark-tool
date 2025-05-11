@@ -1,4 +1,6 @@
-import pyarrow.parquet as pq
+import pyarrow.dataset as ds
 
-parquet_file = pq.ParquetFile("../resources/test2")
-print(f"Number of row groups: {parquet_file.num_row_groups}")
+dataset = ds.dataset("../resources/tripdata-partitionBy-PULocationID.parquet", format="parquet")
+num_row_groups = sum(fragment.num_row_groups for fragment in dataset.get_fragments())
+
+print(f"Number of row groups: {num_row_groups}")

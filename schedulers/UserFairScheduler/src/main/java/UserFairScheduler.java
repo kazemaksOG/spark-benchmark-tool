@@ -28,10 +28,10 @@ public class UserFairScheduler implements SchedulableBuilder {
         if (user == null) {
             user = "DEFAULT";
         }
-        String jobType = properties.getProperty("job.class");
+
         Schedulable userPool = rootPool.getSchedulableByName(user);
         if (userPool == null) {
-            userPool = new Pool(user, SchedulingMode.FIFO(), 0, 1, null);
+            userPool = new Pool(user, SchedulingMode.FAIR(), 0, 1, null);
             rootPool.addSchedulable(userPool);
         }
         userPool.addSchedulable(manager);
