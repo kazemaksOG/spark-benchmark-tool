@@ -6,26 +6,35 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class  UserClusterFairScheduler implements SchedulableBuilder {
-
+    private static final double BASE_GRACE_PERIOD = 5;
 
     class UserContainer {
         ConcurrentHashMap<String, User> activeUsers = new ConcurrentHashMap<>();
+        ConcurrentHashMap<String, User> historicUsers = new ConcurrentHashMap<>();
         TreeSet<User> orderedUsers = new TreeSet<>();
         int totalCores;
         long globalVirtualTime;
         long previousCurrentTime;
+        double gracePeriod;
         UserContainer() {
             this.totalCores = 1;
             this.globalVirtualTime = 0;
             this.previousCurrentTime = 0;
+            this.gracePeriod = BASE_GRACE_PERIOD;
+        }
+
+        private void updateGracePeriod() {
+            this.gracePeriod = BASE_GRACE_PERIOD * this.totalCores / 2;
         }
 
         public boolean isEmpty() {
             return this.activeUsers.isEmpty();
         }
 
+
         public void setCores(int cores) {
             this.totalCores = cores;
+            this.updateGracePeriod();
         }
 
         public long getGlobalVirtualTime() {
@@ -33,6 +42,19 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         }
 
         public User addOrGetUser(String userName) {
+            // first check if user previously existed
+            if (this.historicUsers.contains(userName)) {
+                // revive the user and remove from history
+                User oldUser = this.historicUsers.remove(userName);
+                oldUser.revive(this.globalVirtualTime, this.gracePeriod);
+
+                // add user to active users and ordered list
+                if (this.activeUsers.put(userName, oldUser) != null) {
+                    System.out.println("User " + userName + " already in active users?");
+                }
+                this.orderedUsers.add(oldUser);
+                return oldUser;
+            }
             // find the user in active users, or create it
             return this.activeUsers.computeIfAbsent(userName, mapUserName -> {
                 System.out.println("######## New user: " + mapUserName);
@@ -86,18 +108,15 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
                 }
 
 
-                // Progress virtual time until the time minUser leaves the system, then remove the minUser
+                // Progress virtual time until the time minUser leaves the system, then add to history and remove the minUser
                 this.updateVirtualTime(userFinishTime.get(), minUser);
+                this.historicUsers.put(minUser.name, minUser);
                 if(this.activeUsers.remove(minUser.name) == null) {
                     System.out.println("####### ERROR: User " + minUser.name + " is already removed from hashmap");
                 }
                 System.out.println("INFO: removing user " + minUser.name + " from hashmap");
                 userIterator.remove();
             }
-
-
-
-
         }
     }
 
@@ -182,6 +201,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         String name;
         long userVirtualTime;
         long globalVirtualStartTime;
+        long globalVirtualEndTime;
         HashMap<Long, Job> jobIdToJob = new HashMap<>();
         TreeSet<Job> activeJobs;
 
@@ -189,6 +209,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             this.name = name;
             this.userVirtualTime = 0;
             this.globalVirtualStartTime = globalVirtualTime;
+            this.globalVirtualEndTime = globalVirtualTime;
 
             this.jobIdToJob = new HashMap<>();
             this.activeJobs = new TreeSet<>();
@@ -206,7 +227,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
                 return Optional.of(currentTime - 1);
             }
             long currentGlobalVirtualTime = globalVirtualTime + (long)((currentTime - previousCurrentTime) * userShare);
-            long lastJobGlobalVirtualDeadline = activeJobs.last().getGlobalVirtualDeadline();
+            long lastJobGlobalVirtualDeadline = this.globalVirtualEndTime;
             if(lastJobGlobalVirtualDeadline <= currentGlobalVirtualTime) {
                 long realTimeSpent = (long)((lastJobGlobalVirtualDeadline - globalVirtualTime) / userShare);
                 long userFinishTime = previousCurrentTime + realTimeSpent;
@@ -300,6 +321,8 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
                 job.updateGlobalDeadlines(currentGlobalVirtualTime);
                 currentGlobalVirtualTime = job.getGlobalVirtualDeadline();
             }
+            // keep note of time when all jobs end for this user
+            this.globalVirtualEndTime = currentGlobalVirtualTime;
         }
 
         private void updateJobRuntime(Job currentJob, long time) {
@@ -309,6 +332,13 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             }
             currentJob.updateUserDeadline(time);
             this.activeJobs.add(currentJob);
+        }
+
+        public void revive(long globalVirtualTime, double gracePeriod) {
+            // if user has passed the grace period, reset their global virtual start time
+            if(globalVirtualTime - this.globalVirtualEndTime > gracePeriod) {
+                this.globalVirtualStartTime = globalVirtualTime;
+            }
         }
 
         @Override
