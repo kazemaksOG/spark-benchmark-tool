@@ -17,7 +17,9 @@ public class RuntimePartitioner implements CustomPartitioner {
         PerformanceEstimatorInterface performanceEstimator = session.sparkContext().getPerformanceEstimator().getOrElse(null);
         long runtimeEstimate = performanceEstimator.getSqlRuntime(sqlId, totalBytes);
         long minRuntimePartitionNum = (long)(runtimeEstimate / MAX_TASK_RUNTIME);
-        long splitPartitionNum = Math.max(minPartitionNum, minRuntimePartitionNum);
+        // for now, we ignore minPartitionNum supplied by Spark
+        long splitPartitionNum = minRuntimePartitionNum;
+//        long splitPartitionNum = Math.max(minPartitionNum, minRuntimePartitionNum);
         long splitBytes = totalBytes / splitPartitionNum;
         System.out.println("runtimeEstimate = " + runtimeEstimate);
         System.out.println("minPartitionNum" + minPartitionNum);
