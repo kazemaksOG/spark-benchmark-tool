@@ -6,7 +6,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class  UserClusterFairScheduler implements SchedulableBuilder {
-    private static final double BASE_GRACE_PERIOD = 5;
+    private static final double BASE_GRACE_PERIOD_MS = 5000;
 
     class UserContainer {
         ConcurrentHashMap<String, User> activeUsers = new ConcurrentHashMap<>();
@@ -20,11 +20,11 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             this.totalCores = 1;
             this.globalVirtualTime = 0;
             this.previousCurrentTime = 0;
-            this.gracePeriod = BASE_GRACE_PERIOD;
+            this.gracePeriod = BASE_GRACE_PERIOD_MS;
         }
 
         private void updateGracePeriod() {
-            this.gracePeriod = BASE_GRACE_PERIOD * this.totalCores / 2;
+            this.gracePeriod = BASE_GRACE_PERIOD_MS * this.totalCores / 2;
         }
 
         public boolean isEmpty() {
