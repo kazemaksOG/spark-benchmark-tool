@@ -43,7 +43,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
         public User addOrGetUser(String userName) {
             // first check if user previously existed
-            if (this.historicUsers.contains(userName)) {
+            if (this.historicUsers.containsKey(userName)) {
                 // revive the user and remove from history
                 User oldUser = this.historicUsers.remove(userName);
                 oldUser.revive(this.globalVirtualTime, this.gracePeriod);
