@@ -6,7 +6,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class  UserClusterFairScheduler implements SchedulableBuilder {
-    private static final double BASE_GRACE_PERIOD_MS = 5000;
+    private static final double BASE_GRACE_PERIOD_MS = 100000;
 
     class UserContainer {
         ConcurrentHashMap<String, User> activeUsers = new ConcurrentHashMap<>();
@@ -337,7 +337,10 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         public void revive(long globalVirtualTime, double gracePeriod) {
             // if user has passed the grace period, reset their global virtual start time
             if(globalVirtualTime - this.globalVirtualEndTime > gracePeriod) {
+                System.out.println("Reviving user with new virtual time, global" + globalVirtualTime + " grace period: " + gracePeriod +" global end time: " + this.globalVirtualEndTime + " global start time" + this.globalVirtualStartTime);
                 this.globalVirtualStartTime = globalVirtualTime;
+            } else {
+                System.out.println("Reviving user with old virtual time, global" + globalVirtualTime + " grace period: " + gracePeriod +" global end time: " + this.globalVirtualEndTime + " global start time" + this.globalVirtualStartTime);
             }
         }
 
