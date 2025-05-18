@@ -6,7 +6,7 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class  UserClusterFairScheduler implements SchedulableBuilder {
-    private static final double BASE_GRACE_PERIOD_MS = 100000;
+    private static final double BASE_GRACE_PERIOD_MS = 5000;
 
     class UserContainer {
         ConcurrentHashMap<String, User> activeUsers = new ConcurrentHashMap<>();
@@ -66,22 +66,16 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         }
 
 
-        public void updateVirtualTime(Long currentTime, User ignoreUser) {
+        public void progressVirtualTime(long currentTime, double userShare) {
             // check if there are any users in the system
             if(!this.activeUsers.isEmpty()) {
-                // calculate user shares
-                double userShare = ((double) this.totalCores) / ((double) activeUsers.size());
                 // Update global virtual time
                 long passedRealTime = currentTime - this.previousCurrentTime;
                 System.out.println("#### INFO: usershare " + userShare + " passedRealTime " + passedRealTime + " globalVirtualTime " + this.globalVirtualTime);
                 this.globalVirtualTime += (long) (passedRealTime * userShare);
 
-                // Update virtual time of all users
+                // Update virtual time of all active users
                 for (User user : this.activeUsers.values()) {
-                    // Ignore user represents a user that will be removed after update, hence we dont need to update them
-                    if (ignoreUser != null && ignoreUser.name.equals(user.name)) {
-                        continue;
-                    }
                     user.updateVirtualTime(userShare, this.previousCurrentTime, currentTime);
                 }
             }
@@ -91,12 +85,16 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         }
 
 
-        public void advanceVirtualTime(long currentTime) {
+        public void updateVirtualTime(long currentTime) {
+
+            // Phase 1: Advance the virtual time as users leave the system
+            // This is necessary since virtual time progresses faster with less users in the system
+
             // repeat until no finished user is encountered
             Iterator<User> userIterator = orderedUsers.iterator();
             while (userIterator.hasNext()) {
                 User minUser = userIterator.next();
-                double userShare = ((double) this.totalCores) / ((double)activeUsers.size());
+                double userShare = ((double) this.totalCores) / ((double) activeUsers.size());
                 Optional<Long> userFinishTime = minUser.userRealFinishTime(
                         this.globalVirtualTime,
                         this.previousCurrentTime,
@@ -107,16 +105,29 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
                     break;
                 }
 
-
-                // Progress virtual time until the time minUser leaves the system, then add to history and remove the minUser
-                this.updateVirtualTime(userFinishTime.get(), minUser);
+                // remove the user from active users
                 this.historicUsers.put(minUser.name, minUser);
                 if(this.activeUsers.remove(minUser.name) == null) {
                     System.out.println("####### ERROR: User " + minUser.name + " is already removed from hashmap");
                 }
-                System.out.println("INFO: removing user " + minUser.name + " from hashmap");
                 userIterator.remove();
+                System.out.println("INFO: removing user " + minUser.name + " from hashmap");
+
+                // Progress virtual time until the time minUser leaves the system
+                this.progressVirtualTime(userFinishTime.get(), userShare);
             }
+
+            // Phase 2: advance virtual time until current time
+            double userShare = ((double) this.totalCores) / ((double) activeUsers.size());
+            this.progressVirtualTime(currentTime, userShare);
+        }
+
+        public void updateUserOrder(User addingUser) {
+            // to resort the treeset, we have to remove and add the job back
+            if(!this.orderedUsers.remove(addingUser)) {
+                System.out.println("######### ERROR: updating user but current user does not exist in orderedUsers with name: " + addingUser.name);
+            }
+            this.orderedUsers.add(addingUser);
         }
     }
 
@@ -245,11 +256,12 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             Iterator<Job> jobIterator = activeJobs.iterator();
             while (jobIterator.hasNext()) {
                 Job job = jobIterator.next();
-                long realTimeSpent = (long)((job.userVirtualDeadline - this.userVirtualTime) / userShare);
+                long virtualTimeSpent = job.userVirtualDeadline - this.userVirtualTime;
+                long realTimeSpent = (long)(virtualTimeSpent / jobShare);
                 long jobRealFinishTime = previousCurrentTime + realTimeSpent;
                 if(jobRealFinishTime <= currentTime) {
                     // advance virtual time based on amount of current shares
-                    this.userVirtualTime += (long)(realTimeSpent * jobShare);
+                    this.userVirtualTime += virtualTimeSpent;
                     previousCurrentTime = jobRealFinishTime;
 
                     // advance user job virtual start time
@@ -400,13 +412,8 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
     private void checkAndUpdateUsers(long currentTime) {
 
-        // Phase 1: advance the virtual time as users leave the system
-        // This is necessary since virtual time progresses faster with less users in the system
-        this.userContainer.advanceVirtualTime(currentTime);
+        this.userContainer.updateVirtualTime(currentTime);
 
-
-        // Phase 2: advance virtual time until current time
-        this.userContainer.updateVirtualTime(currentTime, null);
 
     }
 
@@ -428,6 +435,9 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
         // add the stage to the user
         addingUser.addStage(this.userContainer.getGlobalVirtualTime(), jobRuntime , stage);
+        
+        // update user order
+        this.userContainer.updateUserOrder(addingUser);
     }
 
     /** In current Spark version, resource offers are handled serially using

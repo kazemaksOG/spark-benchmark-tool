@@ -19,7 +19,13 @@ public class ShortestFirstScheduler implements SchedulableBuilder {
     ShortestFirstScheduler(Pool rootPool) {
         jobWeight.put("jobs.implementations.LongOperation", 10);
         jobWeight.put("jobs.implementations.ShortOperation", 3);
-        jobWeight.put("jobs.implementations.SuperShortOperation", 3);
+        jobWeight.put("jobs.implementations.SuperShortOperation", 1);
+
+        jobWeight.put("jobs.implementations.udf.Loop1000", 20);
+        jobWeight.put("jobs.implementations.udf.Loop500", 10);
+        jobWeight.put("jobs.implementations.udf.Loop100", 5);
+        jobWeight.put("jobs.implementations.udf.Loop20", 2);
+
         jobWeight.put("DefaultJob", 1);
         this.rootPool = rootPool;
     }
