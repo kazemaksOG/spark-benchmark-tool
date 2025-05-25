@@ -20,7 +20,7 @@
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
         "totalIterations": 20,
-        "startTimeMs": "5000",
+        "startTimeMs": "30000",
         "poissonRateInMinutes": 0,
         "frequency": "PARA",
         "params": {
@@ -32,7 +32,7 @@
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
         "totalIterations": 20,
-        "startTimeMs": "10000",
+        "startTimeMs": "60000",
         "poissonRateInMinutes": 0,
         "frequency": "PARA",
         "params": {
@@ -44,7 +44,7 @@
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
         "totalIterations": 20,
-        "startTimeMs": "15000",
+        "startTimeMs": "90000",
         "poissonRateInMinutes": 0,
         "frequency": "PARA",
         "params": {
@@ -61,7 +61,7 @@
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
         "totalIterations": 20,
-        "startTimeMs": "150",
+        "startTimeMs": "200",
         "poissonRateInMinutes": 0,
         "frequency": "PARA",
         "params": {
@@ -73,7 +73,7 @@
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
         "totalIterations": 20,
-        "startTimeMs": "5050",
+        "startTimeMs": "30100",
         "poissonRateInMinutes": 0,
         "frequency": "PARA",
         "params": {
@@ -85,7 +85,7 @@
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
         "totalIterations": 20,
-        "startTimeMs": "10050",
+        "startTimeMs": "60100",
         "poissonRateInMinutes": 0,
         "frequency": "PARA",
         "params": {
@@ -97,7 +97,7 @@
         "inputType": "PARQUET",
         "className": "jobs.implementations.udf.Loop100",
         "totalIterations": 20,
-        "startTimeMs": "15050",
+        "startTimeMs": "90100",
         "poissonRateInMinutes": 0,
         "frequency": "PARA",
         "params": {
@@ -115,7 +115,7 @@
         "className": "jobs.implementations.udf.Loop100",
         "totalIterations": 12,
         "startTimeMs": "200",
-        "poissonRateInMinutes": 14,
+        "poissonRateInMinutes": 8,
         "frequency": "PARA",
         "params": {
         }
@@ -132,7 +132,7 @@
         "className": "jobs.implementations.udf.Loop100",
         "totalIterations": 12,
         "startTimeMs": "300",
-        "poissonRateInMinutes": 14,
+        "poissonRateInMinutes": 8,
         "frequency": "PARA",
         "params": {
         }

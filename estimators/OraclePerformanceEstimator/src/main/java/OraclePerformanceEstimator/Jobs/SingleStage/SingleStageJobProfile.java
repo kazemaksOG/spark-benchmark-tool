@@ -26,7 +26,7 @@ public class SingleStageJobProfile extends JobProfile {
         switch(stageType) {
             case PARALLELIZE -> {
                 String parallelizeJobClass = stageType.toString();
-                super.setJobClass(parallelizeJobClass);
+//                super.setJobClass(parallelizeJobClass); removed for now because it should be associated with the SQL job it belongs to
                 super.updateEstimatedRuntime(DEFAULT_PARALLELIZE_TIME);
 
 
