@@ -1,14 +1,12 @@
-from os.path import isfile
+from globals import *
+from benchmark_classes import *
+from utility import *
+
 import pandas as pd
 import argparse
-import requests
 import json
 import os
-import numpy as np
 import pickle
-import math
-from datetime import datetime
-from copy import copy
 
 
 import random
@@ -16,421 +14,6 @@ random.seed(42)
 
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
-
-
-# result parsing settings
-
-EXECUTOR_AMOUNT = 8
-CORES_PER_EXEC = 4
-
-RUN_PATH="./data/performance_test_26/target"
-BENCH_PATH=f"{RUN_PATH}/bench_outputs"
-
-# history server address
-APPS_URL="http://localhost:18080/api/v1/applications"
-
-
-SCHEDULERS = [
-    "CUSTOM_FAIR",
-    "CUSTOM_RANDOM",
-    # "CUSTOM_SHORT",
-    "DEFAULT_FIFO",
-    "DEFAULT_FAIR_PARTITIONER",
-    "DEFAULT_FAIR",
-    # "AQE_CUSTOM_FAIR",
-    # "AQE_CUSTOM_RANDOM",
-    # "AQE_CUSTOM_SHORT",
-    # "AQE_DEFAULT_FIFO",
-    # "AQE_DEFAULT_FAIR",
-    "CUSTOM_CLUSTERFAIR",
-    "CUSTOM_USERCLUSTERFAIR_PARTITIONER", # has to be before regular because of string comparison
-    "CUSTOM_USERCLUSTERFAIR",
-
-]
-
-FORMAL_NAME = {
-    "DEFAULT_FAIR": "Fair",
-    "DEFAULT_FAIR_PARTITIONER": "Fair-P",
-    "CUSTOM_CLUSTERFAIR": "U-WFQ",
-    "CUSTOM_USERCLUSTERFAIR_PARTITIONER": "U-WFQ-P",
-}
-
-CONFIGS = [
-    "2_large_2_small_users",
-    "4_large_users",
-    "2_power_2_small_users",
-    "4_super_small_users",
-    "test_workload",
-]
-
-
-# _ used for delimiter
-JOB_TYPES = [
-"loop20_",
-"loop100_",
-"loop1000_",
-]
-
-# Numerical constants
-GIGA = 1000000000
-MS_TO_S = 1 / 1000 
-NS_TO_S = 1 / 1000000000
-
-S_TO_MS = 1000
-S_TO_NS = 1000000000
-
-# drawing constants
-JOBGROUP_BIN_SIZE=5
-JOBGROUP_BIN_DIST=0.3
-STAGE_DIST=0.1
-
-
-
-##################### HELPER FUNCTIONS #######################################
-
-# names usually are bench_NAME_CONFIG_EXTRA
-def get_human_name(filename):
-    name = ""
-    config = ""
-
-    index = len("bench_")
-
-    for sch in SCHEDULERS:
-        if filename[index:].startswith(sch):
-            name = sch 
-            break
-
-    # move index forawrd
-    index += len(name) + len("_")
-
-    for conf in CONFIGS:
-        if filename[index:].startswith(conf):
-            config = conf
-            break
-
-    return name, config
-
-def get_job_type(name):
-    for job_type in JOB_TYPES:
-        if job_type in name:
-            return job_type
-    return "unclassified job"
-
-def get_average(arr):
-    return np.mean(arr)
-
-
-def get_worst_10_percent(arr):
-    arr = np.array(arr)
-    n = max(1, int(len(arr) * 0.1))
-    top_10_percent = np.partition(arr, -n)[-n:]
-    return np.mean(top_10_percent)
-
-def get_worst_1_percent(arr):
-    arr = np.array(arr)
-    n = max(1, int(len(arr) * 0.01))
-    top_1_percent = np.partition(arr, -n)[-n:]
-    return np.mean(top_1_percent)
-
-def find_closest_to_0(nums):
-    candidate = 0 
-    while candidate in nums:
-        candidate+=1 
-    return candidate 
-
-
-def round_sig(x, sig=4):
-    if x == 0:
-        return 0  # Avoid log(0) error
-    return round(x, sig - int(math.floor(math.log10(abs(x)))) - 1)
-
-
-########################## MAIN CLASSES ############################################
-class Benchmark:
-    def __init__(self, scheduler, config, users_template):
-        self.scheduler = scheduler
-        self.config = config
-        self.app_name = f"bench_{scheduler}_{config}"
-        self.runs = []
-        self.users_template = users_template
-        self.get_event_data()
-
-
-
-    def get_event_data(self):
-
-        response = requests.get(APPS_URL)
-
-        if response.status_code != 200:  # Check if the request was successful
-            raise Exception(f"Error requesting eventlog data for application: {response.status_code}")
-        # find the jobs for data
-        data = response.json()  # Convert response to JSON
-
-        app_ids = [entry["id"] for entry in data if entry["name"].startswith(self.app_name)]
-        print(f"Found app ids for {self.app_name}:")
-        print(app_ids)
-        for i, app_id in enumerate(app_ids):
-            run = Run(self.scheduler, self.config, np.copy(self.users_template), i)
-            run.get_event_data(app_id)
-            self.runs.append(run)
-
-
-class Run:
-    def __init__(self, scheduler, config, users, iteration):
-        self.scheduler = scheduler
-        self.config = config
-        self.app_name = f"{scheduler}_{config}"
-        self.users = users
-        self.iteration = iteration
-
-    def get_cpu_time(self):
-        return sum([execution.total_time for user in self.users for jobgroup in user.jobgroups for execution in jobgroup.executor_load])
-    def get_write_ratio(self):
-        write_time = sum([execution.total_time for user in self.users for jobgroup in user.jobgroups for execution in jobgroup.executor_load if execution.ex_type == "WRITE"])
-        return write_time / self.get_cpu_time()
-
-    def get_event_data(self, app_id):
-        
-        # get executor details
-
-        response = requests.get(f"{APPS_URL}/{app_id}/executors")
-        if response.status_code != 200:
-            raise Exception(f"Error requesting eventlog data for executors: {response.status_code}")
-        data = response.json()
-
-
-        total_shuffle_read = 0
-        total_shuffle_write = 0
-        peak_JVM_memory = 0
-        for executor in data:
-            if executor["id"] == "driver":
-                continue
-            total_shuffle_read += executor["totalShuffleRead"]
-            total_shuffle_write += executor["totalShuffleWrite"]
-            used_peak_memory = executor["peakMemoryMetrics"]["JVMHeapMemory"] + executor["peakMemoryMetrics"]["JVMOffHeapMemory"]
-            peak_JVM_memory = max(peak_JVM_memory, used_peak_memory)
-            
-            
-        self.total_shuffle_read = total_shuffle_read / GIGA
-        self.total_shuffle_write = total_shuffle_write / GIGA
-        self.peak_JVM_memory = peak_JVM_memory / GIGA
-
-
-        # get user and more detailed execution data 
-
-        for user in self.users:
-            user.get_event_data(app_id)
-
-
-
-    
-
-class User:
-    def __init__(self, name, base_runtimes):
-        self.name = name
-        self.base_runtimes = base_runtimes
-        self.jobgroups = []
-
-
-
-    def get_event_data(self, app_id):
-        response = requests.get(f"{APPS_URL}/{app_id}/jobs")
-        if response.status_code == 200:  # Check if the request was successful
-            # find the jobs for data
-            jobs_json = response.json()  # Convert response to JSON
-
-            user_jobgroup_map = {}
-            for job in jobs_json:
-                jobgroup = job["jobGroup"]
-                if self.name in jobgroup:
-                    # if first unique jobgroup, create list
-                    if user_jobgroup_map.get(jobgroup) is None:
-                        user_jobgroup_map[jobgroup] = []
-                    
-                    user_jobgroup_map[jobgroup].append(job["jobId"])
-            
-            for jobgroup_key in user_jobgroup_map:
-                jobs = user_jobgroup_map[jobgroup_key]
-
-                # Assume user only does one type of job
-                base_runtime = 1
-                if len(self.base_runtimes) != 0:
-                    base_runtime = next((self.base_runtimes[base] for base in self.base_runtimes if base in jobgroup_key ))
-                jobgroup = JobGroup(jobgroup_key, jobs, base_runtime)
-                # get all jobgroup event data and then append
-                jobgroup.get_event_data(app_id)
-                self.jobgroups.append(jobgroup)
-                
-
-        else:
-            raise Exception(f"Error requesting eventlog data for jobs: {response.status_code}")
-
-
-
-
-class JobGroup:
-    def __init__(self, name, jobs, expected_runtime_s):
-        self.name = name
-        self.job_type = get_job_type(name)
-        self.jobs = jobs
-        self.expected_runtime = expected_runtime_s
-        
-
-
-        self.stages = []
-        self.task_ids = []
-        self.executor_load = []
-        self.task_scheduler_delays = []
-        self.start = None
-        self.end = None
-
-        self.total_time = None
-        self.slowdown = None
-        self.proportional_slowdown = None
-
-    def get_event_data(self, app_id):
-
-        for job_id in self.jobs:
-            response = requests.get(f"{APPS_URL}/{app_id}/jobs/{job_id}")
-            if response.status_code != 200:
-                raise Exception(f"Error requesting eventlog data for job {job_id}: {response.status_code}")
-
-            job_json = response.json()
-
-            # convert times to seconds since epoch
-            job_start = job_json["submissionTime"]
-            job_start_dt = datetime.strptime(job_start[:-3], "%Y-%m-%dT%H:%M:%S.%f")
-            job_start_s= job_start_dt.timestamp()
-
-            job_end = job_json["completionTime"]
-            job_end_dt = datetime.strptime(job_end[:-3], "%Y-%m-%dT%H:%M:%S.%f")
-            job_end_s= job_end_dt.timestamp()
-
-            # find earliest and latest start and end time
-            if self.start == None or self.start > job_start_s:
-                self.start = job_start_s
-
-            if self.end == None or self.end < job_end_s:
-                self.end = job_end_s
-
-            # get stages
-            for stage_id in job_json["stageIds"]:
-                response = requests.get(f"{APPS_URL}/{app_id}/stages/{stage_id}")
-                if response.status_code != 200:
-                    print(f"Stage {stage_id} was either skipped or failed (or something else) for job {job_id}, response: {response.status_code}") 
-                    continue
-                    # raise Exception(f"Error requesting eventlog data for stage {stage_id} for job {job_id}: {response.status_code}")
-                # returns an array of one element
-                stage_json = response.json()[0]
-                if stage_json["status"] == "COMPLETE":
-                    # convert times to seconds since epoch
-                    stage_start = stage_json["firstTaskLaunchedTime"]
-                    stage_start_dt = datetime.strptime(stage_start[:-3], "%Y-%m-%dT%H:%M:%S.%f")
-                    stage_start_s= stage_start_dt.timestamp()
-
-                    stage_end = stage_json["completionTime"]
-                    stage_end_dt = datetime.strptime(stage_end[:-3], "%Y-%m-%dT%H:%M:%S.%f")
-                    stage_end_s= stage_end_dt.timestamp()
-                    self.stages.append(Stage(stage_id, stage_start_s, stage_end_s))
-
-                    # get how much time spent on executor
-                    for task_key in stage_json["tasks"]:
-                        task = stage_json["tasks"][task_key]
-                        task_id = task["taskId"]
-
-                        # check if any duplicate
-                        if task_id in self.task_ids:
-                            print(task_id)
-                            continue
-
-                        task_start = task["launchTime"]
-                        task_start_dt = datetime.strptime(task_start[:-3], "%Y-%m-%dT%H:%M:%S.%f")
-                        task_start_s =task_start_dt.timestamp()
-                        executor_id = int(task["executorId"])
-
-                        task_metrics = task["taskMetrics"]
-                        # get write and compute times. because other parts of execution are negligible and i had issues with allignment, execution time includes everything except writing
-                        execution_time_s = task_metrics["executorRunTime"] / S_TO_MS
-                        write_time_s = task_metrics["shuffleWriteMetrics"]["writeTime"] * NS_TO_S
-
-                        execution_start_s = task_start_s
-                        execution_end_s = task_start_s + execution_time_s - write_time_s
-
-                        write_start_s = execution_end_s 
-                        write_end_s = write_start_s + write_time_s 
-
-                        self.executor_load.append(Execution(executor_id, "EXEC", execution_start_s, execution_end_s, stage_id))
-                        self.executor_load.append(Execution(executor_id, "WRITE", write_start_s, write_end_s, stage_id))
-
-                        # add the scheduler delay
-                        task_scheduler_delay_s = task["schedulerDelay"] / S_TO_MS
-                        self.task_scheduler_delays.append(task_scheduler_delay_s)
-
-                        self.task_ids.append(task_id)
-
-        # calculate jobgroup metrics
-        self.total_time = self.end - self.start
-        self.slowdown = self.total_time - self.expected_runtime
-        self.proportional_slowdown = self.total_time / self.expected_runtime
-
-
-
-
- 
-class Stage:
-    def __init__(self,stage_id, start_s, end_ms):
-        self.id = stage_id 
-        self.start = start_s 
-        self.end = end_ms
-class Execution:
-    def __init__(self, executor_id, ex_type, start_s, end_s, stage_id):
-        self.executor_id = executor_id
-        self.ex_type = ex_type 
-        self.start = start_s 
-        self.end = end_s
-        self.total_time = end_s - start_s
-        self.stage_id = stage_id
-
-
-
-class Bin:
-    def __init__(self, start, end, max=1, id=0, e=0.005):
-        self.e = e
-        self.start = start 
-        self.end = end 
-        self.max = max
-        self.id = id
-        self.pos = -1
-        self.subbins = []
-
-    def add(self, bin_elem):
-        self.subbins.append(bin_elem)
-
-
-    def pack_subbins(self):
-        self.subbins = [bin for bin in self.subbins if bin.end - bin.start > self.e]
-        ends = copy(self.subbins)
-        n = len(self.subbins)
-        self.subbins.sort(key=lambda x: x.start)
-        ends.sort(key=lambda x: x.end)
-
-        i = 0
-        j = 0
-
-        taken_pos = set()
-        while i < n :
-
-            if self.subbins[i].start >= ends[j].end and ends[j].pos in taken_pos:
-                taken_pos.remove(ends[j].pos)
-                j += 1
-            else:
-
-                pos = find_closest_to_0(taken_pos)
-                self.subbins[i].pos = pos
-                taken_pos.add(pos)
-                self.max = self.max if self.max > len(taken_pos) else len(taken_pos)
-                i += 1
-
 
 
 def create_table(args):
@@ -477,7 +60,9 @@ def create_table(args):
             all_proportional_slowdowns = [jobgroup.proportional_slowdown for user in run.users for jobgroup in user.jobgroups]
 
 
-            avg_rt = get_average([jobgroup.total_time for user in run.users for jobgroup in user.jobgroups])
+            all_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups]
+            avg_rt = get_average(all_rt)
+            avg_rt_10 = get_worst_10_percent(all_rt)
             slowdown_avg = get_average(all_slowdowns) 
             slowdown_avg_10 = get_worst_10_percent(all_slowdowns) 
             proportional_slowdown_avg = get_average(all_proportional_slowdowns)
@@ -486,12 +71,14 @@ def create_table(args):
 
             run_row.extend([
                 ("average response time", avg_rt),
+                ("average response time (worst10%)", avg_rt_10),
+                
+                ("average proportional slowdown", proportional_slowdown_avg),
+                ("average proportional slowdown (worst10%)", proportional_slowdown_avg_10),
 
                 ("average absolute slowdown", slowdown_avg),
                 ("average absolute slowdown (worst10%)", slowdown_avg_10),
 
-                ("average proportional slowdown", proportional_slowdown_avg),
-                ("average proportional slowdown (worst10%)", proportional_slowdown_avg_10),
             ])
 
             # per job type metrics
@@ -517,14 +104,15 @@ def create_table(args):
 
                 run_row.extend([
                     (f"{job_type} average response time", jobs_rt_avg),
+                    (f"{job_type} average proportional slowdown", jobs_prop_slowdown_avg),
+                    (f"{job_type} average absolute slowdown", jobs_slowdown_avg),
+
                     (f"{job_type} average response time (worst 10%)", jobs_rt_avg_10),
                     (f"{job_type} average response time (worst 1%)", jobs_rt_avg_1),
 
-                    (f"{job_type} average absolute slowdown", jobs_slowdown_avg),
                     (f"{job_type} average absolute slowdown (worst 10%)", jobs_slowdown_avg_10),
                     (f"{job_type} average absolute slowdown (worst 1%)", jobs_slowdown_avg_1),
 
-                    (f"{job_type} average proportional slowdown", jobs_prop_slowdown_avg),
                     (f"{job_type} average proportional slowdown (worst 10%)", jobs_prop_slowdown_avg_10),
                     (f"{job_type} average proportional slowdown (worst 1%)", jobs_prop_slowdown_avg_1),
                 ])
@@ -554,14 +142,15 @@ def create_table(args):
 
                 run_row.extend([
                     (f"{user.name} average response time", user_rt_avg),
+                    (f"{user.name} average proportional slowdown", user_prop_slowdown_avg),
+                    (f"{user.name} average absolute slowdown", user_slowdown_avg),
+
                     (f"{user.name} average response time (worst 10%)", user_rt_avg_10),
                     (f"{user.name} average response time (worst 1%)", user_rt_avg_1),
 
-                    (f"{user.name} average absolute slowdown", user_slowdown_avg),
                     (f"{user.name} average absolute slowdown (worst 10%)", user_slowdown_avg_10),
                     (f"{user.name} average absolute slowdown (worst 1%)", user_slowdown_avg_1),
 
-                    (f"{user.name} average proportional slowdown", user_prop_slowdown_avg),
                     (f"{user.name} average proportional slowdown (worst 10%)", user_prop_slowdown_avg_10),
                     (f"{user.name} average proportional slowdown (worst 1%)", user_prop_slowdown_avg_1),
                 ])
@@ -585,12 +174,15 @@ def create_table(args):
                                 continue
 
                             baseline_jobgroup = baseline_jobgroup[0]
-                            if jobgroup.end > baseline_jobgroup.end:
-                                deadline_miss.append(jobgroup.end - baseline_jobgroup.end)
-                                job_deadline_miss.append(jobgroup.end - baseline_jobgroup.end)
+                            # print("running: " + jobgroup.name + " for: " + run.scheduler)
+                            # print(f"name: {baseline_jobgroup.name}")
+                            # print(f"target: {jobgroup.total_time} base: {baseline_jobgroup.total_time}")
+                            if jobgroup.total_time > baseline_jobgroup.total_time:
+                                deadline_miss.append(jobgroup.total_time - baseline_jobgroup.total_time)
+                                job_deadline_miss.append(jobgroup.total_time - baseline_jobgroup.total_time)
                             else:
-                                deadline_gain.append(baseline_jobgroup.end - jobgroup.end)
-                                job_deadline_gain.append(baseline_jobgroup.end - jobgroup.end)
+                                deadline_gain.append(baseline_jobgroup.total_time - jobgroup.total_time)
+                                job_deadline_gain.append(baseline_jobgroup.total_time - jobgroup.total_time)
 
                         job_sum_deadline_miss = sum(job_deadline_miss)
                         job_avg_deadline_miss = get_average(job_deadline_miss) 
@@ -606,11 +198,12 @@ def create_table(args):
 
                         run_row.extend([
                             (f"{job_type} Total missed deadline time", job_sum_deadline_miss),
+                            (f"{job_type} Total gained deadline time", job_sum_deadline_gain),
+
                             (f"{job_type} Average missed deadline time", job_avg_deadline_miss),
                             (f"{job_type} Worst 10% missed deadline time", job_avg_10_deadline_miss),
                             (f"{job_type} Worst 1% missed deadline time", job_avg_1_deadline_miss),
 
-                            (f"{job_type} Total gained deadline time", job_sum_deadline_gain),
                             (f"{job_type} Average gained deadline time", job_avg_deadline_gain),
                             (f"{job_type} Worst 10% gained deadline time", job_avg_10_deadline_gain),
                             (f"{job_type} Worst 1% gained deadline time", job_avg_1_deadline_gain),
@@ -630,11 +223,12 @@ def create_table(args):
 
             run_row.extend([
                 ("Total missed deadline time", sum_deadline_miss),
+                ("Total gained deadline time", sum_deadline_gain),
+
                 ("Average missed deadline time", avg_deadline_miss),
                 ("Worst 10% missed deadline time", avg_10_deadline_miss),
                 ("Worst 1% missed deadline time", avg_1_deadline_miss),
 
-                ("Total gained deadline time", sum_deadline_gain),
                 ("Average gained deadline time", avg_deadline_gain),
                 ("Worst 10% gained deadline time", avg_10_deadline_gain),
                 ("Worst 1% gained deadline time", avg_1_deadline_gain),
@@ -654,10 +248,9 @@ def create_table(args):
 
 
         # make a dir if necessary
-        output_folder = f"{bench.scheduler}_{bench.config}"
-        os.makedirs(output_folder, exist_ok=True)
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-        df.to_csv(os.path.join(output_folder, f"run_data.csv"))
+        df.to_csv(os.path.join(OUTPUT_DIR, f"{bench.scheduler}_{bench.config}_run_data.csv"))
 
 
 
@@ -667,9 +260,9 @@ def plot_and_save_cdf(target, baseline, target_name, base_name, folder, output):
     # plot data
     fig, ax = plt.subplots()
 
-    ax.ecdf(target, label=f"{target_name}", linestyle="-", color="royalblue")
+    ax.ecdf(target, label=f"{FORMAL_NAME[target_name]}", linestyle=SCHEDULER_LINE[target_name], color=SCHEDULER_COLOR[target_name])
 
-    ax.ecdf(baseline, label=f"{base_name}", linestyle="--", color="black")
+    ax.ecdf(baseline, label=f"{FORMAL_NAME[base_name]}", linestyle=SCHEDULER_LINE[base_name], color=SCHEDULER_COLOR[base_name])
 
 
     ax.grid(True)
@@ -686,7 +279,7 @@ def plot_and_save_cdf(target, baseline, target_name, base_name, folder, output):
     # make a dir if necessary
     os.makedirs(folder, exist_ok=True)
 
-    filename = os.path.join(folder, f"{output}.png") 
+    filename = os.path.join(folder, f"{output}.{FIG_FORMAT}") 
     print(f"saving {filename}")
     fig.savefig(filename)
     plt.close(fig)
@@ -715,7 +308,7 @@ def cdf(args):
                 baseline_run = (baseline_benches[0]).runs[0]
                 baseline_rt = [jobgroup.total_time for user in baseline_run.users for jobgroup in user.jobgroups]
 
-                plot_and_save_cdf(all_rt, baseline_rt, run.scheduler, args.compare_to, f"{run.scheduler}_{run.config}", "overall_rt")
+                plot_and_save_cdf(all_rt, baseline_rt, run.scheduler, args.compare_to, os.path.join(OUTPUT_DIR,f"{run.scheduler}_{run.config}"), "overall_rt")
 
 
                 
@@ -739,7 +332,7 @@ def cdf(args):
                     baseline_user = [base_user for base_user in baseline_run.users if base_user.name == user.name ][0]
                     baseline_user_rt = [jobgroup.total_time for jobgroup in baseline_user.jobgroups]
 
-                    plot_and_save_cdf(user_rt, baseline_user_rt, run.scheduler, args.compare_to, f"{run.scheduler}_{run.config}",f"{user.name}_response_time_cdf")
+                    plot_and_save_cdf(user_rt, baseline_user_rt, run.scheduler, args.compare_to, os.path.join(OUTPUT_DIR,f"{run.scheduler}_{run.config}"), f"{user.name}_response_time_cdf")
 
     elif args.change_type == "job":
         for bench in benches:
@@ -762,9 +355,52 @@ def cdf(args):
                     baseline_run = (baseline_benches[0]).runs[0]
                     baseline_job_rt = [jobgroup.total_time for user in baseline_run.users for jobgroup in user.jobgroups if jobgroup.job_type == job_type]
 
-                    plot_and_save_cdf(job_rt, baseline_job_rt, run.scheduler, args.compare_to, f"{run.scheduler}_{run.config}",f"{job_type}_response_time_cdf")
+                    plot_and_save_cdf(job_rt, baseline_job_rt, run.scheduler, args.compare_to, os.path.join(OUTPUT_DIR, f"{run.scheduler}_{run.config}"),f"{job_type}_response_time_cdf")
 
                 
+    elif args.change_type == "custom":
+        for configuration in CONFIGS:
+            fig, ax = plt.subplots()
+            for bench in benches:
+                if configuration != bench.config:
+                    continue
+                if "PARTITIONER" not in bench.scheduler and "DEFAULT" not in bench.scheduler:
+                    continue
+                for run in bench.runs:
+
+                    # no need to cmpare baseline to itself
+                    if run.scheduler not in args.compare_to:
+                        continue
+                    print(f"using schedule: {run.scheduler}")
+
+                    all_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups]
+
+                    # plot data
+
+                    ax.ecdf(all_rt, label=f"{FORMAL_NAME[run.scheduler]}", linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
+
+
+
+            ax.grid(True)
+            ax.legend()
+            # ax.set_title(f"Response time ECDF :{run.config}")
+            ax.set_xlabel("Response time (s)")
+            ax.set_ylabel("Fraction of jobs")
+            ax.set_ylim(ymin=0)
+            ax.set_xlim(xmin=0)
+
+            if args.show_plot:
+                plt.show()
+
+
+            os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+            filename = os.path.join(OUTPUT_DIR, f"{configuration}_custom_ecdf.{FIG_FORMAT}")
+            print(f"saving {filename}")
+            fig.savefig(filename)
+            plt.close(fig)
+
+
 
 
 
@@ -912,10 +548,9 @@ def timeline(args):
 
 
             # make a dir if necessary
-            output_folder = f"{run.scheduler}_{run.config}"
-            os.makedirs(output_folder, exist_ok=True)
+            os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-            filename = os.path.join(output_folder, f"user_job_timeline.png") 
+            filename = os.path.join(OUTPUT_DIR, f"{run.scheduler}_{run.config}_user_job_timeline.{FIG_FORMAT}")
 
             fig.savefig(filename)
             plt.close(fig)
@@ -1029,7 +664,7 @@ if __name__ == "__main__":
 
 
     cdf_parser = subparsers.add_parser("cdf", help="Create ECDFs of response time")
-    cdf_parser.add_argument("--change_type", help="Show different type of cdf metrics. Values: user, job, total", default="total")
+    cdf_parser.add_argument("--change_type", help="Show different type of cdf metrics. Values: user, job, total, custom", default="total")
     cdf_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="DEFAULT_FAIR" )
     cdf_parser.set_defaults(func=cdf)
 
