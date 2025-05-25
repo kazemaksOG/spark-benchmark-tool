@@ -10,6 +10,8 @@ resources/
 
 # logs and outputs gather from runs
 results/data
+results/metrics
+results/__pycache__
 
 # personal scripts
 gather_and_clean_results.sh
