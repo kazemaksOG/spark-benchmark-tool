@@ -23,3 +23,4 @@ $MVN -f ./estimators/OraclePerformanceEstimator package
 
 # compile partitioners
 $MVN -f ./partitioners/RuntimePartitioner package
+$MVN -f ./partitioners/OraclePartitioner package
