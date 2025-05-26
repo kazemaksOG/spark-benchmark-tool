@@ -4,13 +4,13 @@
     "workloads": [
       {
         "workloadName": "job 1",
-        "inputPath": "resources/fhvhv_tripdata_2024-08.parquet",
+        "inputPath": "resources/tripdata-partitionBy-PULocationID.parquet",
         "inputType": "PARQUET",
         "className": "jobs.implementations.LongOperation",
-        "totalIterations": 4,
+        "totalIterations": 1,
         "startTimeMs": "100",
         "poissonRateInMinutes": 0,
-        "frequency": "SEQ",
+        "frequency": "PARA",
         "partitioning": "NONE",
         "params": {
         }
