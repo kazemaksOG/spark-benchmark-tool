@@ -38,6 +38,11 @@ public class OraclePartitioner implements CustomPartitioner{
         String jobClass = session.sparkContext().localProperties().get().getProperty("job.class");
         System.out.println("###### JOBCLASS: " + jobClass);
         long taskAmount = jobClassToTaskAmount.getOrDefault(jobClass, 32L);
+        if(jobClass.equals("jobs.implementations.udf.LoopCustom")) {
+            double runtime_s = Double.parseDouble(session.sparkContext().localProperties().get().getProperty("task.runtime", "1000.0"));
+            System.out.println("###### RUNTIME: " + runtime_s);
+            taskAmount = runtimeToAmount(runtime_s);
+        }
         long splitPartitionNum = Math.max(minPartitionNum, taskAmount);
         long splitBytes = totalBytes / splitPartitionNum;
         System.out.println("minPartitionNum" + minPartitionNum);
@@ -48,12 +53,21 @@ public class OraclePartitioner implements CustomPartitioner{
         return Math.max(openCostInBytes, splitBytes);
     }
 
+    private long runtimeToAmount(double runtime_s) {
+        return (long)(4+1.832672* Math.pow(runtime_s,1.012495));
+    }
+
     @Override
     public int getMinNumPartitions(SparkSession session, SparkPlan plan, long totalSize) {
         System.out.println("#### in getMinNumPartitions");
         String jobClass = session.sparkContext().localProperties().get().getProperty("job.class");
         System.out.println("###### JOBCLASS: " + jobClass);
         long taskAmount = jobClassToTaskAmount.getOrDefault(jobClass, 32L);
+        if(jobClass.equals("jobs.implementations.udf.LoopCustom")) {
+            double runtime_s = Double.parseDouble(session.sparkContext().localProperties().get().getProperty("task.runtime", "1000.0"));
+            System.out.println("###### RUNTIME: " + runtime_s);
+            taskAmount = runtimeToAmount(runtime_s);
+        }
         System.out.println("taskAmount = " + taskAmount);
         return (int)taskAmount;
     }

@@ -29,6 +29,7 @@ public class JobProfileContainer {
 
     public static final String ROOT_EXECUTION_ID = "spark.sql.execution.root.id";
     public static final String JOB_CLASS_PROPERTY = "job.class";
+    private static final String JOB_RUNTIME_PROPERTY = "job.runtime";
 
     private static final String DEFAULT_JOB_GROUP = "DEFAULT";
     private static final String JOB_GROUP_PROPERTY = "spark.jobGroup.id";
@@ -109,6 +110,12 @@ public class JobProfileContainer {
             return DEFAULT_JOB_RUNTIME;
         }
 
+        // if job is complete, or real runtime already set
+        if (jobProfile.isFinished()) {
+            System.out.println("###### INFO: realRuntime: " + jobProfile.getRuntime() + " for job " + jobProfile.getJobId() + " for stage:" + stageId);
+            return new JobRuntime(jobProfile.getJobGroupId(), jobProfile.getRuntime());
+        }
+
         long totalRuntime = 0L;
         long jobCount = 0L;
         for(JobProfile historyProfile : jobClassToJobProfiles.computeIfAbsent(jobProfile.getJobClass(), key -> new LinkedList<>())) {
@@ -126,7 +133,7 @@ public class JobProfileContainer {
             return DEFAULT_JOB_RUNTIME;
         }
         long estimatedRuntime = totalRuntime / jobCount;
-        System.out.println("###### INFO: estimatedRuntime: " + estimatedRuntime + " for job " + jobProfile.getJobId());
+        System.out.println("###### INFO: estimatedRuntime: " + estimatedRuntime + " for job " + jobProfile.getJobId() + " for stage:" + stageId);
         //update job estimated runtime
         jobProfile.updateEstimatedRuntime(estimatedRuntime);
         return new JobRuntime(jobProfile.getJobGroupId(), estimatedRuntime);
@@ -266,6 +273,13 @@ public class JobProfileContainer {
                         System.out.println("####### adding SQL job with stageId: " + key + " type: " + stageType + " to job: " + jobProfile.getExecutionId() );
                         return jobProfile;
                     });
+
+                    // For macro benchmarks: all classes are the same but supply total runtime
+                    if(jobClass.equals("jobs.implementations.udf.LoopCustom")) {
+                        double runtime_s = Double.parseDouble(stageEvent.properties().getProperty(JOB_RUNTIME_PROPERTY, "1000.0"));
+                        long runtime = (long) (runtime_s * 1000);
+                        jobProfile.setRealRuntime(runtime);
+                    }
                 } else {
                     // This stage is suppose to be added to a SQL job profile, but it is not there
                     // We store this tage in the widow list, and hope to find its job profile later
@@ -277,6 +291,13 @@ public class JobProfileContainer {
                 // Assume this is a single stage job if no query associated
                 JobProfile profile = new SingleStageJobProfile(stageInfo, stageType, jobClass, jobGroupId);
                 stageIdToJobProfile.putIfAbsent(stageId, profile);
+                
+                // For macro benchmarks: all classes are the same but supply total runtime
+                if(jobClass.equals("jobs.implementations.udf.LoopCustom")) {
+                    double runtime_s = Double.parseDouble(stageEvent.properties().getProperty(JOB_RUNTIME_PROPERTY, "1000.0"));
+                    long runtime = (long) (runtime_s * 1000);
+                    profile.setRealRuntime(runtime);
+                }
             }
         }
     }

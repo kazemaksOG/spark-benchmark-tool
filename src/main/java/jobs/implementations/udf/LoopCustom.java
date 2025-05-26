@@ -25,11 +25,18 @@ public class LoopCustom extends Job {
 
     @Override
     public void run() {
+        // Get task runtime
+        double task_runtime_s = Double.parseDouble(params.get("task_runtime_s"));
+        this.spark.sparkContext().setLocalProperty("task.runtime", Double.toString(task_runtime_s));
+
+        // add job runtime and udf to spark
+        double job_runtime_s = Double.parseDouble(params.get("job_runtime_s"));
+        this.spark.sparkContext().setLocalProperty("job.runtime", Double.toString(job_runtime_s));
+
         Dataset<Row> parquetDataset = defaultParquetSetup();
 
         measurementUnit.startMeasurement("execution_time");
-        // Get task runtime
-        double task_runtime_s = Double.parseDouble(params.get("task_runtime_s"));
+
         // Generate UDF of that runtime
         UDF1<Integer, Integer> loopCustom = UdfContainer.generateLoopCustom(task_runtime_s);
         String name = task_runtime_s + "_" + UUID.randomUUID().toString().replace("-", "");
