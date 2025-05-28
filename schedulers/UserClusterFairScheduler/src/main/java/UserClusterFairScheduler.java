@@ -379,7 +379,6 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
     Pool rootPool;
     SparkContext sc;
-    int totalCores;
     PerformanceEstimatorInterface performanceEstimator;
 
     // User fair scheduling variables
@@ -392,7 +391,6 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         performanceEstimator = sc.getPerformanceEstimator().getOrElse(() -> {
             throw new RuntimeException("Performance estimator not available");
         });
-        System.out.println("######## UserClusterFairScheduler started with cores: " + this.totalCores);
     }
 
     @Override
@@ -458,7 +456,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
         // ######## 1. Progress virtual time for all users #########
         long currentTime = System.currentTimeMillis();
-        System.out.println("####### Current time: " + convertReadableTime(currentTime) + " with cores: " + this.totalCores);
+        System.out.println("####### Current time: " + convertReadableTime(currentTime));
         checkAndUpdateUsers(currentTime);
 
         // ######## 2. Add stage and update deadlines #########

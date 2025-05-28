@@ -1,11 +1,75 @@
 import org.apache.spark.SparkContext;
 import org.apache.spark.scheduler.*;
+import org.jetbrains.annotations.NotNull;
 import scala.Tuple2;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class ClusterFairScheduler implements SchedulableBuilder {
+
+    class Job implements Comparable<Job> {
+        long jobId;
+        long jobRuntime;
+
+        long startVirtualTime;
+
+        long virtualDeadline;
+        List<TaskSetManager> activeStages;
+
+        Job(long userVirtualTime, JobRuntime initialJobRuntime) {
+            this.jobId = initialJobRuntime.id();
+            this.jobRuntime = initialJobRuntime.time();
+
+            this.startVirtualTime = userVirtualTime;
+
+            // set deadlines
+            this.virtualDeadline = this.startVirtualTime + initialJobRuntime.time();
+
+            this.activeStages = new ArrayList<>();
+        }
+
+        public void addStage(TaskSetManager stage) {
+            this.activeStages.add(stage);
+        }
+
+        public void updateDeadline(long time) {
+            this.jobRuntime = time;
+            this.virtualDeadline = this.startVirtualTime + this.jobRuntime;
+            System.out.println("####### INFO: deadline for : " + this.jobId + " with runtime : " + this.jobRuntime + " virtual time : " + convertReadableTime(virtualTime));
+            activeStages.removeIf(stage -> this.updateDeadline(stage, this.virtualDeadline));
+        }
+
+        /**
+         *
+         * @param stage
+         * @return true if the stage has physically finished, false otherwise
+         */
+        private boolean updateDeadline(TaskSetManager stage, long deadline) {
+            // If stage has finished, no need to keep track of it anymore
+            if(stage.tasksSuccessful() == stage.numTasks()) {
+                return true;
+            }
+            System.out.println("######## Stage calculations:" + stage.stageId());
+            System.out.println("### deadline: " + convertReadableTime(stage.deadline()) + " -> " + convertReadableTime(deadline));
+            stage.deadline_$eq(deadline);
+
+            return false;
+        }
+
+        @Override
+        public int compareTo(@NotNull Job otherJob) {
+            // Jobs should be sorted based on virtual deadline, indicating when they would end in a fair scheduler
+            int priority = Long.compare(this.virtualDeadline, otherJob.virtualDeadline);
+            // Since TreeSet uses comparator for also checking if elements are equal, we dont want to overwrite elements
+            // with the same virtual deadlines
+            if(priority == 0) {
+                return Long.compare(this.jobId, otherJob.jobId);
+            }
+            return priority;
+        }
+
+    }
 
 
 
@@ -16,14 +80,20 @@ public class ClusterFairScheduler implements SchedulableBuilder {
     // Virtual time related variables
     long virtualTime = System.currentTimeMillis();
     long startTime = System.currentTimeMillis();
-    long lastStageSubmissionTime = virtualTime;
+    long previousCurrentTime = startTime;
     PerformanceEstimatorInterface performanceEstimator;
-    ConcurrentHashMap<Integer, TaskSetManager> activeStages = new ConcurrentHashMap<>();
+
+
+    HashMap<Long, Job> jobIdToJob = new HashMap<>();
+    TreeSet<Job> activeJobs = new TreeSet<>();
 
     ClusterFairScheduler(Pool rootPool, SparkContext sc) {
         this.rootPool = rootPool;
         this.sc = sc;
 
+        performanceEstimator = sc.getPerformanceEstimator().getOrElse(() -> {
+            throw new RuntimeException("Performance estimator not available");
+        });
     }
 
     @Override
@@ -40,95 +110,91 @@ public class ClusterFairScheduler implements SchedulableBuilder {
         return (time - startTime) / 1000.0;
     }
 
+
+    private void updateJobRuntime(Job currentJob, long time) {
+        // to resort the treeset, we have to remove and add the job back
+        if(!this.activeJobs.remove(currentJob)) {
+            System.out.println("######### ERROR: updating job runtime but current job does not exist in activeJobs with id: " + currentJob.jobId);
+        }
+        currentJob.updateDeadline(time);
+        this.activeJobs.add(currentJob);
+    }
+
     private void setPriority(Schedulable schedulable, Properties properties) {
         // TaskSetManager represents stages, other schedulables are ignored
-        if(!(schedulable instanceof TaskSetManager taskSetManager)) {
+        if(!(schedulable instanceof TaskSetManager stage)) {
             return;
         }
 
         this.totalCores = this.sc.defaultParallelism();
 
-        // ######## Update virtual time #########
-
-        // see if any stages have finished
-        List<Tuple2<Integer, Long>> endTimes = listener.getStageEndTimes();
 
         long currentTime = System.currentTimeMillis();
 
         System.out.println("####### Current time: " + convertReadableTime(currentTime));
         System.out.println("####### Current virtualTime: " + convertReadableTime(virtualTime));
-        System.out.println("####### Current lastStageSubmissionTime: " + convertReadableTime(lastStageSubmissionTime));
+        System.out.println("####### Current previousCurrentTime: " + convertReadableTime(previousCurrentTime));
+
+
         // advance virtual time if any stage has finished
-        for(Tuple2<Integer, Long> stageTuple : endTimes) {
-            int stageId = stageTuple._1();
-            long endTime = stageTuple._2();
-            System.out.println("######## Stage completed: " + stageId + " with endtime: " + convertReadableTime(endTime));
+        double jobShare = !activeJobs.isEmpty() ? ((double) this.totalCores) / (activeJobs.size()) : 0 ;
+        Iterator<Job> jobIterator = activeJobs.iterator();
+        while (jobIterator.hasNext()) {
+            Job activeJob = jobIterator.next();
+            System.out.println("######## Job deadline: " + convertReadableTime(activeJob.virtualDeadline));
 
-            if(!activeStages.containsKey(stageId)) {
-                // This should technically never occur
-                System.out.println("######## ERROR: stage was already finished: " +stageId);
-                continue;
+            long virtualTimeSpent = activeJob.virtualDeadline - virtualTime;
+            long realTimeSpent = (long)(virtualTimeSpent / jobShare);
+            long jobRealFinishTime = previousCurrentTime + realTimeSpent;
+
+            // check if earliest job has finished
+            if(jobRealFinishTime > currentTime) {
+                break;
             }
 
-            // remove the the job from active stages
-            TaskSetManager tm = activeStages.remove(stageId);
-            if (tm == null) {
-                // This should technically never occur
-                System.out.println("######## ERROR: stage was already removed: " + stageId);
-            }
-            // calculate the appropriate share
-            double share = ((double) this.totalCores) / (activeStages.size() + 1.0);
+            // remove job from active jobs
+            jobIterator.remove();
+
             // calculate how much virtual time has advanced
-            System.out.println("######## Share: " + share);
-            System.out.println("####### Diff" + (endTime - lastStageSubmissionTime));
-            long advancement = (long)((endTime - lastStageSubmissionTime) * share);
+            System.out.println("######## Share: " + jobShare);
+            System.out.println("####### Virtual time spent" + (virtualTimeSpent));
 
-            if(advancement < 0) {
-                System.out.println("######## ERROR: advancement is negative: " + advancement);
-            } else {
-                virtualTime += advancement;
-                lastStageSubmissionTime = endTime;
-            }
-                System.out.println("######## Updating virtual time:");
-                System.out.println("Advancement time: " + advancement);
-                System.out.println("VirtualTime: " + convertReadableTime(virtualTime) );
-                System.out.println("LastStageSubmissionTime: " + convertReadableTime(lastStageSubmissionTime));
+            virtualTime += virtualTimeSpent;
+            previousCurrentTime = jobRealFinishTime;
+            jobShare = !activeJobs.isEmpty() ? ((double) this.totalCores) / (activeJobs.size()) : 0 ;
 
-        }
-
-        // If no active stages, reset virtual time
-        if(activeStages.isEmpty()) {
-            System.out.println("######## Reset");
-            virtualTime = currentTime;
-            lastStageSubmissionTime = currentTime;
-        }
-
-
-        // advance virtual time by the amount of all stages running concurrently
-        // sanity check if laststageSubmission is not in the future
-        if(lastStageSubmissionTime <= currentTime) {
-            double share = (double)(this.totalCores) / (double)(activeStages.size() + 1);
-            long advancement = (long) ((currentTime - lastStageSubmissionTime) * share);
-            virtualTime += advancement;
-            System.out.println("######## Since last stage submit:");
+            System.out.println("######## Updating virtual time:");
             System.out.println("VirtualTime: " + convertReadableTime(virtualTime) );
-            System.out.println("LastStageSubmissionTime: " + convertReadableTime(lastStageSubmissionTime));
-        } else {
-            System.out.println("######## ERROR: lastStageSubmission ahead of current time !!!");
+            System.out.println("previousCurrentTime: " + convertReadableTime(previousCurrentTime));
         }
 
 
         // ######## Modify current stage for submission #########
-        int stageId = taskSetManager.stageId();
 
-        // Calculate deadline of current stage
-        long expectedRuntime = performanceEstimator.getRuntimeEstimate(stageId);
-        long deadline = virtualTime + expectedRuntime;
-        taskSetManager.deadline_$eq(deadline);
+        int stageId = stage.stageId();
+        JobRuntime jobRuntime = performanceEstimator.getJobRuntime(stageId);
 
-        System.out.println("######### Task scheduled with priority: " + convertReadableTime(deadline));
-        activeStages.put(taskSetManager.stageId(), taskSetManager);
-        lastStageSubmissionTime = currentTime;
+        Job currentJob;
+        // check if job id is valid
+        if (jobRuntime.id() != JobRuntime.JOB_INVALID_ID()) {
+            // Find the corresponding job, or make a new one
+            currentJob = this.jobIdToJob.computeIfAbsent(jobRuntime.id(), jobId -> {
+                Job newJob = new Job(virtualTime, jobRuntime);
+                // add the job to active jobs
+                this.activeJobs.add(newJob);
+                return newJob;
+            });
+
+        } else {
+            // Job does not belong to anything, treat it as a single stage job
+            currentJob = new Job(virtualTime, jobRuntime);
+            this.activeJobs.add(currentJob);
+        }
+
+        // add the stage to the corresponding job
+        currentJob.addStage(stage);
+
+        this.updateJobRuntime(currentJob, jobRuntime.time());
     }
 
     @Override
