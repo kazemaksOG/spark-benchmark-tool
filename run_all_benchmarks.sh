@@ -1,8 +1,9 @@
 # Usage: source ./script <MASTER_URL> <RESERVATION_ID>
 
+
 # which benchmarks to run
 RUN_DEFAULT=1 # runs all schedulers with /configs/base_DAS5_config.json config
-RUN_INDIVIDUAL=1 # runs all jobs individually just to get expected runtimes without interference
+RUN_INDIVIDUAL=0 # runs all jobs individually just to get expected runtimes without interference
 RUN_COALESCE=0 # runs workloads from $COALESCE_WORKLOAD_DIR
 RUN_AQE=0 # runs all schedulers with ./configs/base_AQE_config.json config
 
@@ -17,7 +18,7 @@ PROJECT_DIR="/var/scratch/$USER/performance_test"
 SCHEDULER_DIR="$PROJECT_DIR/schedulers"
 SPARK_JOB_FILE="$PROJECT_DIR/target/performance_test-1.0-SNAPSHOT.jar"
 
-WORKLOAD_DIR="$PROJECT_DIR/configs/workloads"
+WORKLOAD_DIR="$PROJECT_DIR/configs/macro"
 INDIVIDUAL_WORKLOAD_DIR="$PROJECT_DIR/configs/individual"
 COALESCE_WORKLOAD_DIR="$PROJECT_DIR/configs/coalesce"
 
@@ -27,18 +28,28 @@ declare -A SCHEDULERS
 
 #SCHEDULERS[CUSTOM_SHORT]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=ShortestFirstSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/ShortestFirstScheduler/target/ShortestFirstScheduler-1.0-SNAPSHOT.jar"
 
-SCHEDULERS[CUSTOM_FAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=UserFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/UserFairScheduler/target/UserFairScheduler-1.0-SNAPSHOT.jar"
 
-#SCHEDULERS[CUSTOM_RANDOM]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=RandomSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/RandomScheduler/target/RandomScheduler-1.0-SNAPSHOT.jar"
+SCHEDULERS[CUSTOM_RANDOM]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=RandomSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/RandomScheduler/target/RandomScheduler-1.0-SNAPSHOT.jar:$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar:$PROJECT_DIR/partitioners/OraclePartitioner/target/OraclePartitioner-1.0-SNAPSHOT.jar"
+SCHEDULERS[CUSTOM_RANDOM_PARTITIONER]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=RandomSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/RandomScheduler/target/RandomScheduler-1.0-SNAPSHOT.jar:$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar:$PROJECT_DIR/partitioners/OraclePartitioner/target/OraclePartitioner-1.0-SNAPSHOT.jar"
 
-#SCHEDULERS[CUSTOM_CLUSTERFAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=ClusterFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/ClusterFairScheduler/target/ClusterFairScheduler-1.0-SNAPSHOT.jar"
-SCHEDULERS[CUSTOM_USERCLUSTERFAIR]="--conf spark.scheduler.mode=CUSTOM --conf  spark.customSchedulerContainer=UserClusterFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/UserClusterFairScheduler/target/UserClusterFairScheduler-1.0-SNAPSHOT.jar:$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar --conf spark.customPerformanceEstimator=OraclePerformanceEstimatorr"
+SCHEDULERS[CUSTOM_CLUSTERFAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=ClusterFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/ClusterFairScheduler/target/ClusterFairScheduler-1.0-SNAPSHOT.jar:$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar:$PROJECT_DIR/partitioners/OraclePartitioner/target/OraclePartitioner-1.0-SNAPSHOT.jar"
+SCHEDULERS[CUSTOM_CLUSTERFAIR_PARTITIONER]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=ClusterFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/ClusterFairScheduler/target/ClusterFairScheduler-1.0-SNAPSHOT.jar:$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar:$PROJECT_DIR/partitioners/OraclePartitioner/target/OraclePartitioner-1.0-SNAPSHOT.jar"
+
+
+SCHEDULERS[CUSTOM_USERCLUSTERFAIR]="--conf spark.scheduler.mode=CUSTOM --conf  spark.customSchedulerContainer=UserClusterFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/UserClusterFairScheduler/target/UserClusterFairScheduler-1.0-SNAPSHOT.jar:$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar --conf spark.customPerformanceEstimator=OraclePerformanceEstimator.OraclePerformanceEstimator"
+
+SCHEDULERS[CUSTOM_USERCLUSTERFAIR_PARTITIONER]="--conf spark.scheduler.mode=CUSTOM --conf  spark.customSchedulerContainer=UserClusterFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/UserClusterFairScheduler/target/UserClusterFairScheduler-1.0-SNAPSHOT.jar:$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar:$PROJECT_DIR/partitioners/OraclePartitioner/target/OraclePartitioner-1.0-SNAPSHOT.jar --conf spark.customPerformanceEstimator=OraclePerformanceEstimator.OraclePerformanceEstimator --conf  spark.customPartitioner=OraclePartitioner"
+
+
+
+#SCHEDULERS[CUSTOM_FAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=UserFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/UserFairScheduler/target/UserFairScheduler-1.0-SNAPSHOT.jar"
+
 
 SCHEDULERS[DEFAULT_FAIR]="--conf spark.scheduler.mode=FAIR"
-SCHEDULERS[DEFAULT_FIFO]="--conf spark.scheduler.mode=FIFO"
+SCHEDULERS[DEFAULT_FAIR_PARTITIONER]="--conf spark.scheduler.mode=FAIR --conf spark.driver.extraClassPath=$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar:$PROJECT_DIR/partitioners/OraclePartitioner/target/OraclePartitioner-1.0-SNAPSHOT.jar --conf spark.customPerformanceEstimator=OraclePerformanceEstimator.OraclePerformanceEstimator --conf spark.customPartitioner=OraclePartitioner"
 
-
-
+SCHEDULERS[TRUE_FIFO]="--conf spark.scheduler.mode=FIFO"
+SCHEDULERS[TRUE_FIFO_PARTITIONER]="--conf spark.scheduler.mode=FIFO"
 
 if [ "${BASH_SOURCE[0]}" -ef "$0" ]
 then
