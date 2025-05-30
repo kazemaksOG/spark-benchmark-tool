@@ -261,12 +261,18 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
                 long jobRealFinishTime = previousCurrentTime + realTimeSpent;
                 if(jobRealFinishTime <= currentTime) {
                     // advance virtual time based on amount of current shares
-                    this.userVirtualTime += virtualTimeSpent;
-                    previousCurrentTime = jobRealFinishTime;
+                    // if negative, it means that some stages are lagging behind, but we do not need to add them
+                    // since virtual time already accounted for this job finishing
+                    if(virtualTimeSpent > 0) {
+                        this.userVirtualTime += virtualTimeSpent;
+                        previousCurrentTime = jobRealFinishTime;
+                        // advance user job virtual start time
+                        this.globalVirtualStartTime += job.jobRuntime;
+                        System.out.println("##### INFO: advancing globalStartTime for user: " + name + "globalStartTime:" + this.globalVirtualStartTime );
+                    } else {
+                        System.out.println("##### INFO: late stage for user: " + name + "jobId:" + job.jobId + "job user deadline:" + job.userVirtualDeadline );
+                    }
 
-                    // advance user job virtual start time
-                    this.globalVirtualStartTime += job.jobRuntime;
-                    System.out.println("##### INFO: advancing globalStartTime for user: " + name + "globalStartTime:" + this.globalVirtualStartTime );
                     // remove the finished job and recalculate share
                     jobIterator.remove();
                     jobAmount--;

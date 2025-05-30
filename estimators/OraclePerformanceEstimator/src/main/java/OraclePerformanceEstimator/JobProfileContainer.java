@@ -151,55 +151,35 @@ public class JobProfileContainer {
 
         if (jobProfile instanceof SqlJobProfile sqlJobProfile) {
 
-            // get stage node that corresponds to this stageId
-            StageNode stageNode = sqlJobProfile.getStageNode(stageId);
-            if (stageNode == null) {
-                System.out.println("######### ERROR: getStageRuntime: No stage node found for stage " + stageId + " in job id " + sqlJobProfile.getExecutionId());
-                return DEFAULT_STAGE_RUNTIME;
+            // if job is complete, or real runtime already set
+            if (jobProfile.isFinished()) {
+                System.out.println("###### INFO getStageRuntime: realRuntime: " + jobProfile.getRuntime() + " for job " + jobProfile.getJobId() + " for stage:" + stageId);
+                return sqlJobProfile.getRuntime();
             }
 
-            Set<Integer> stageNodeIds = stageNode.getStageNodeIds();
             long totalRuntime = 0L;
             long jobCount = 0L;
-            for(JobProfile historyProfile : jobClassToJobProfiles.computeIfAbsent(sqlJobProfile.getJobClass(), key -> new LinkedList<>())) {
+            for(JobProfile historyProfile : jobClassToJobProfiles.computeIfAbsent(jobProfile.getJobClass(), key -> new LinkedList<>())) {
                 if(historyProfile.isFinished()) {
-                    if(historyProfile instanceof SqlJobProfile sqlHistoryProfile) {
-                        StageNode historyStageNode = sqlHistoryProfile.getStageNode(stageNodeIds);
-                        if(historyStageNode != null) {
-                            jobCount++;
-                            totalRuntime += historyStageNode.getRuntime();
-                        }
-                    }
+                    System.out.println("##### INFO getStageRuntime: using jobgroup:" + historyProfile.getJobGroupId());
+                    System.out.println("##### INFO getStageRuntime: runtime:" + historyProfile.getRuntime());
+                    jobCount++;
+                    totalRuntime += historyProfile.getRuntime();
                 }
             }
 
             if(jobCount == 0) {
-                System.out.println("######### ERROR: getStageRuntime: No completed history profiles for " + stageId + " with jobclass " + jobProfile.getJobClass() + " with stage node id " + stageNodeIds.toString());
-                return jobProfile.getRuntime();
+                System.out.println("######### ERROR: getStageRuntime: No completed history profiles for " + stageId + " with jobclass " + jobProfile.getJobClass());
+                System.out.println("######## jobClassToJobProfiles: " + jobClassToJobProfiles.get(jobProfile.getJobClass()).toString());
+                return DEFAULT_STAGE_RUNTIME;
             }
             long estimatedRuntime = totalRuntime / jobCount;
-
-            //update stage node estimated runtime
-            stageNode.updateEstimatedRuntime(estimatedRuntime);
+            System.out.println("###### INFO getStageRuntime: estimatedRuntime: " + estimatedRuntime + " for job " + jobProfile.getJobId() + " for stage:" + stageId);
             return estimatedRuntime;
 
         } else if(jobProfile instanceof SingleStageJobProfile singleStageJobProfile) {
-
-            long totalRuntime = 0L;
-            long jobCount = 0L;
-            for(JobProfile historyProfile : jobClassToJobProfiles.computeIfAbsent(singleStageJobProfile.getJobClass(), key -> new LinkedList<>())) {
-                if(historyProfile.isFinished()) {
-                    if (historyProfile instanceof SingleStageJobProfile) {
-                        jobCount++;
-                        totalRuntime += historyProfile.getRuntime();
-                    }
-                }
-            }
-            if(jobCount == 0) {
-                System.out.println("######### ERROR: getStageRuntime: No completed history profiles for " + stageId + " with jobclass " + jobProfile.getJobClass() + " jobid: " + singleStageJobProfile.getJobId());
-                return DEFAULT_STAGE_RUNTIME;
-            }
-            return totalRuntime / jobCount;
+            System.out.println("###### INFO getStageRuntime: estimatedRuntime: " + singleStageJobProfile.getRuntime() + " for job " + jobProfile.getJobId() + " for stage:" + stageId);
+            return singleStageJobProfile.getRuntime();
         } else {
             throw new RuntimeException("Unknown Job Profile " + jobProfile.getJobClass());
         }

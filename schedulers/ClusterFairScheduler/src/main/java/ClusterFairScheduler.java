@@ -8,63 +8,36 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public class ClusterFairScheduler implements SchedulableBuilder {
 
-    class Job implements Comparable<Job> {
-        long jobId;
-        long jobRuntime;
+    class Stage implements Comparable<Stage> {
+        long stageId;
+        long stageRuntime;
 
         long startVirtualTime;
 
         long virtualDeadline;
-        List<TaskSetManager> activeStages;
 
-        Job(long userVirtualTime, JobRuntime initialJobRuntime) {
-            this.jobId = initialJobRuntime.id();
-            this.jobRuntime = initialJobRuntime.time();
+        Stage(TaskSetManager stage, long virtualStartTime, long runtime) {
+            this.stageId = stage.stageId();
 
-            this.startVirtualTime = userVirtualTime;
-
+            this.startVirtualTime = virtualStartTime;
+            this.stageRuntime = runtime;
             // set deadlines
-            this.virtualDeadline = this.startVirtualTime + initialJobRuntime.time();
+            this.virtualDeadline = this.startVirtualTime + this.stageRuntime;
+            stage.deadline_$eq(this.virtualDeadline);
 
-            this.activeStages = new ArrayList<>();
+            System.out.println("##### INFO: stageId: " + stageId + " startVirtualTime: " + startVirtualTime + " runtime: " + runtime + " virtualDeadline: " + virtualDeadline);
         }
 
-        public void addStage(TaskSetManager stage) {
-            this.activeStages.add(stage);
-        }
 
-        public void updateDeadline(long time) {
-            this.jobRuntime = time;
-            this.virtualDeadline = this.startVirtualTime + this.jobRuntime;
-            System.out.println("####### INFO: deadline for : " + this.jobId + " with runtime : " + this.jobRuntime + " virtual time : " + convertReadableTime(virtualTime));
-            activeStages.removeIf(stage -> this.updateDeadline(stage, this.virtualDeadline));
-        }
-
-        /**
-         *
-         * @param stage
-         * @return true if the stage has physically finished, false otherwise
-         */
-        private boolean updateDeadline(TaskSetManager stage, long deadline) {
-            // If stage has finished, no need to keep track of it anymore
-            if(stage.tasksSuccessful() == stage.numTasks()) {
-                return true;
-            }
-            System.out.println("######## Stage calculations:" + stage.stageId());
-            System.out.println("### deadline: " + convertReadableTime(stage.deadline()) + " -> " + convertReadableTime(deadline));
-            stage.deadline_$eq(deadline);
-
-            return false;
-        }
 
         @Override
-        public int compareTo(@NotNull Job otherJob) {
+        public int compareTo(@NotNull Stage otherStage) {
             // Jobs should be sorted based on virtual deadline, indicating when they would end in a fair scheduler
-            int priority = Long.compare(this.virtualDeadline, otherJob.virtualDeadline);
+            int priority = Long.compare(this.virtualDeadline, otherStage.virtualDeadline);
             // Since TreeSet uses comparator for also checking if elements are equal, we dont want to overwrite elements
             // with the same virtual deadlines
             if(priority == 0) {
-                return Long.compare(this.jobId, otherJob.jobId);
+                return Long.compare(this.stageId, otherStage.stageId);
             }
             return priority;
         }
@@ -83,9 +56,7 @@ public class ClusterFairScheduler implements SchedulableBuilder {
     long previousCurrentTime = startTime;
     PerformanceEstimatorInterface performanceEstimator;
 
-
-    HashMap<Long, Job> jobIdToJob = new HashMap<>();
-    TreeSet<Job> activeJobs = new TreeSet<>();
+    TreeSet<Stage> activeStages = new TreeSet<>();
 
     ClusterFairScheduler(Pool rootPool, SparkContext sc) {
         this.rootPool = rootPool;
@@ -110,16 +81,6 @@ public class ClusterFairScheduler implements SchedulableBuilder {
         return (time - startTime) / 1000.0;
     }
 
-
-    private void updateJobRuntime(Job currentJob, long time) {
-        // to resort the treeset, we have to remove and add the job back
-        if(!this.activeJobs.remove(currentJob)) {
-            System.out.println("######### ERROR: updating job runtime but current job does not exist in activeJobs with id: " + currentJob.jobId);
-        }
-        currentJob.updateDeadline(time);
-        this.activeJobs.add(currentJob);
-    }
-
     private void setPriority(Schedulable schedulable, Properties properties) {
         // TaskSetManager represents stages, other schedulables are ignored
         if(!(schedulable instanceof TaskSetManager stage)) {
@@ -137,31 +98,31 @@ public class ClusterFairScheduler implements SchedulableBuilder {
 
 
         // advance virtual time if any stage has finished
-        double jobShare = !activeJobs.isEmpty() ? ((double) this.totalCores) / (activeJobs.size()) : 0 ;
-        Iterator<Job> jobIterator = activeJobs.iterator();
-        while (jobIterator.hasNext()) {
-            Job activeJob = jobIterator.next();
-            System.out.println("######## Job deadline: " + convertReadableTime(activeJob.virtualDeadline));
+        double stageShare = !activeStages.isEmpty() ? ((double) this.totalCores) / (activeStages.size()) : 0 ;
+        Iterator<Stage> stageIterator = activeStages.iterator();
+        while (stageIterator.hasNext()) {
+            Stage activeStage = stageIterator.next();
+            System.out.println("######## Job deadline: " + convertReadableTime(activeStage.virtualDeadline));
 
-            long virtualTimeSpent = activeJob.virtualDeadline - virtualTime;
-            long realTimeSpent = (long)(virtualTimeSpent / jobShare);
-            long jobRealFinishTime = previousCurrentTime + realTimeSpent;
+            long virtualTimeSpent = activeStage.virtualDeadline - virtualTime;
+            long realTimeSpent = (long)(virtualTimeSpent / stageShare);
+            long stageRealFinishTime = previousCurrentTime + realTimeSpent;
 
             // check if earliest job has finished
-            if(jobRealFinishTime > currentTime) {
+            if(stageRealFinishTime > currentTime) {
                 break;
             }
 
             // remove job from active jobs
-            jobIterator.remove();
+            stageIterator.remove();
 
             // calculate how much virtual time has advanced
-            System.out.println("######## Share: " + jobShare);
+            System.out.println("######## Share: " + stageShare);
             System.out.println("####### Virtual time spent" + (virtualTimeSpent));
 
             virtualTime += virtualTimeSpent;
-            previousCurrentTime = jobRealFinishTime;
-            jobShare = !activeJobs.isEmpty() ? ((double) this.totalCores) / (activeJobs.size()) : 0 ;
+            previousCurrentTime = stageRealFinishTime;
+            stageShare = !activeStages.isEmpty() ? ((double) this.totalCores) / (activeStages.size()) : 0 ;
 
             System.out.println("######## Updating virtual time:");
             System.out.println("VirtualTime: " + convertReadableTime(virtualTime) );
@@ -172,29 +133,11 @@ public class ClusterFairScheduler implements SchedulableBuilder {
         // ######## Modify current stage for submission #########
 
         int stageId = stage.stageId();
-        JobRuntime jobRuntime = performanceEstimator.getJobRuntime(stageId);
+        long stageRuntime = performanceEstimator.getStageRuntime(stageId);
 
-        Job currentJob;
-        // check if job id is valid
-        if (jobRuntime.id() != JobRuntime.JOB_INVALID_ID()) {
-            // Find the corresponding job, or make a new one
-            currentJob = this.jobIdToJob.computeIfAbsent(jobRuntime.id(), jobId -> {
-                Job newJob = new Job(virtualTime, jobRuntime);
-                // add the job to active jobs
-                this.activeJobs.add(newJob);
-                return newJob;
-            });
+        Stage currentStage = new Stage(stage, virtualTime, stageRuntime);
 
-        } else {
-            // Job does not belong to anything, treat it as a single stage job
-            currentJob = new Job(virtualTime, jobRuntime);
-            this.activeJobs.add(currentJob);
-        }
-
-        // add the stage to the corresponding job
-        currentJob.addStage(stage);
-
-        this.updateJobRuntime(currentJob, jobRuntime.time());
+        activeStages.add(currentStage);
     }
 
     @Override
