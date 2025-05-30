@@ -129,6 +129,10 @@ public class ClusterFairScheduler implements SchedulableBuilder {
             System.out.println("previousCurrentTime: " + convertReadableTime(previousCurrentTime));
         }
 
+        // ###### catch up virtual time
+        long passedRealTime = currentTime - previousCurrentTime;
+        virtualTime += (long)(passedRealTime * stageShare);
+
 
         // ######## Modify current stage for submission #########
 
