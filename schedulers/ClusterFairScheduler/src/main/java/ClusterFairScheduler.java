@@ -25,7 +25,7 @@ public class ClusterFairScheduler implements SchedulableBuilder {
             this.virtualDeadline = this.startVirtualTime + this.stageRuntime;
             stage.deadline_$eq(this.virtualDeadline);
 
-            System.out.println("##### INFO: stageId: " + stageId + " startVirtualTime: " + startVirtualTime + " runtime: " + runtime + " virtualDeadline: " + virtualDeadline);
+            System.out.println("##### INFO: stageId: " + stageId + " startVirtualTime: " + convertReadableTime(startVirtualTime) + " runtime: " + runtime + " virtualDeadline: " + convertReadableTime(virtualDeadline));
         }
 
 
@@ -132,7 +132,7 @@ public class ClusterFairScheduler implements SchedulableBuilder {
         // ###### catch up virtual time
         long passedRealTime = currentTime - previousCurrentTime;
         virtualTime += (long)(passedRealTime * stageShare);
-
+        previousCurrentTime = currentTime;
 
         // ######## Modify current stage for submission #########
 

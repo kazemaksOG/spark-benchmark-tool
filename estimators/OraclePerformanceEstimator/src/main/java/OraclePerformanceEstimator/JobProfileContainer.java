@@ -151,6 +151,16 @@ public class JobProfileContainer {
 
         if (jobProfile instanceof SqlJobProfile sqlJobProfile) {
 
+            // get stage node that corresponds to this stageId
+            StageNode stageNode = sqlJobProfile.getStageNode(stageId);
+            if (stageNode != null) {
+                Set<Integer> stageNodeIds = stageNode.getStageNodeIds();
+                if (stageNodeIds.contains(2)) {
+                    System.out.println("###### INFO getStageRuntime: stageNodeIds estimatedRuntime: " + 1000 + " for job " + jobProfile.getJobId() + " for stage:" + stageId + "for stageNodeIds:" + stageNodeIds);
+                    return 1000L;
+                }
+            }
+
             // if job is complete, or real runtime already set
             if (jobProfile.isFinished()) {
                 System.out.println("###### INFO getStageRuntime: realRuntime: " + jobProfile.getRuntime() + " for job " + jobProfile.getJobId() + " for stage:" + stageId);
