@@ -86,7 +86,7 @@ class Run:
 
 class User:
     def __init__(self, name, base_runtimes):
-        self.name = name
+        self.name = name + "_" # to avoid misassociations
         self.base_runtimes = base_runtimes
         self.jobgroups = []
 

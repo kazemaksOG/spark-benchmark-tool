@@ -1,3 +1,4 @@
+from numpy.__config__ import CONFIG
 from globals import *
 from benchmark_classes import *
 from utility import *
@@ -21,10 +22,13 @@ def create_table(args):
     benches = get_benchmarks(args.scheduler, args.config)
 
     
+    run_rows = {}
     for bench in benches:
-
-        run_rows = []
-        baseline_benches = get_benchmarks(args.compare_to, bench.config)
+        baseline_benches = None 
+        if "PARTITIONER" in bench.scheduler:
+            baseline_benches = get_benchmarks(args.compare_to + "_PARTITIONER", bench.config)
+        else:
+            baseline_benches = get_benchmarks(args.compare_to, bench.config)
         for iteration, run in enumerate(bench.runs):
             print(f"Getting row elements for {run.app_name}, iteration: {iteration}")
 
@@ -42,7 +46,7 @@ def create_table(args):
 
             run_row.extend([
                 ("Config", run.config),
-                ("Scheduler", run.config),
+                ("Scheduler", run.scheduler),
                 ("Iteration", run.iteration),
                 ("total time", total_time), 
                 ("cpu time", cpu_time),
@@ -76,8 +80,8 @@ def create_table(args):
                 ("average proportional slowdown", proportional_slowdown_avg),
                 ("average proportional slowdown (worst10%)", proportional_slowdown_avg_10),
 
-                ("average absolute slowdown", slowdown_avg),
-                ("average absolute slowdown (worst10%)", slowdown_avg_10),
+                # ("average absolute slowdown", slowdown_avg),
+                # ("average absolute slowdown (worst10%)", slowdown_avg_10),
 
             ])
 
@@ -86,6 +90,10 @@ def create_table(args):
                 jobs = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups if jobgroup.job_type == job_type]
                 jobs_slowdown =  [jobgroup.slowdown for user in run.users for jobgroup in user.jobgroups if jobgroup.job_type == job_type]
                 jobs_prop_slowdown =  [jobgroup.proportional_slowdown for user in run.users for jobgroup in user.jobgroups if jobgroup.job_type == job_type]
+
+
+                if len(jobs) == 0:
+                    continue
 
 
                 jobs_rt_avg = get_average(jobs)
@@ -104,27 +112,24 @@ def create_table(args):
 
                 run_row.extend([
                     (f"{job_type} average response time", jobs_rt_avg),
-                    (f"{job_type} average proportional slowdown", jobs_prop_slowdown_avg),
-                    (f"{job_type} average absolute slowdown", jobs_slowdown_avg),
-
                     (f"{job_type} average response time (worst 10%)", jobs_rt_avg_10),
+                    (f"{job_type} average proportional slowdown", jobs_prop_slowdown_avg),
+                    (f"{job_type} average proportional slowdown (worst 10%)", jobs_prop_slowdown_avg_10),
+                    # (f"{job_type} average absolute slowdown", jobs_slowdown_avg),
+
                     (f"{job_type} average response time (worst 1%)", jobs_rt_avg_1),
 
-                    (f"{job_type} average absolute slowdown (worst 10%)", jobs_slowdown_avg_10),
-                    (f"{job_type} average absolute slowdown (worst 1%)", jobs_slowdown_avg_1),
+                    # (f"{job_type} average absolute slowdown (worst 10%)", jobs_slowdown_avg_10),
+                    # (f"{job_type} average absolute slowdown (worst 1%)", jobs_slowdown_avg_1),
 
-                    (f"{job_type} average proportional slowdown (worst 10%)", jobs_prop_slowdown_avg_10),
                     (f"{job_type} average proportional slowdown (worst 1%)", jobs_prop_slowdown_avg_1),
                 ])
-
-
 
             for user in run.users:
                 # calculate user metrics
                 user_runtime = [jobgroup.total_time for jobgroup in user.jobgroups]
                 user_slowdown =  [jobgroup.slowdown for jobgroup in user.jobgroups ]
                 user_prop_slowdown =  [jobgroup.proportional_slowdown for jobgroup in user.jobgroups]
-
 
                 user_rt_avg = get_average(user_runtime)
                 user_rt_avg_10 = get_worst_10_percent(user_runtime)
@@ -140,35 +145,41 @@ def create_table(args):
                 user_prop_slowdown_avg_10 = get_worst_10_percent(user_prop_slowdown)
                 user_prop_slowdown_avg_1 = get_worst_1_percent(user_prop_slowdown)
 
+
                 run_row.extend([
                     (f"{user.name} average response time", user_rt_avg),
-                    (f"{user.name} average proportional slowdown", user_prop_slowdown_avg),
-                    (f"{user.name} average absolute slowdown", user_slowdown_avg),
-
-                    (f"{user.name} average response time (worst 10%)", user_rt_avg_10),
-                    (f"{user.name} average response time (worst 1%)", user_rt_avg_1),
-
-                    (f"{user.name} average absolute slowdown (worst 10%)", user_slowdown_avg_10),
-                    (f"{user.name} average absolute slowdown (worst 1%)", user_slowdown_avg_1),
-
                     (f"{user.name} average proportional slowdown (worst 10%)", user_prop_slowdown_avg_10),
-                    (f"{user.name} average proportional slowdown (worst 1%)", user_prop_slowdown_avg_1),
+                    (f"{user.name} average response time (worst 10%)", user_rt_avg_10),
+                    (f"{user.name} average proportional slowdown", user_prop_slowdown_avg),
+                    # (f"{user.name} average absolute slowdown", user_slowdown_avg),
+
+                    # (f"{user.name} average response time (worst 1%)", user_rt_avg_1),
+
+                    # (f"{user.name} average absolute slowdown (worst 10%)", user_slowdown_avg_10),
+                    # (f"{user.name} average absolute slowdown (worst 1%)", user_slowdown_avg_1),
+
+                    # (f"{user.name} average proportional slowdown (worst 1%)", user_prop_slowdown_avg_1),
                 ])
 
             # compare to fair scheduler
-            deadline_miss = []
-            deadline_gain = []
-            if run.scheduler != args.compare_to:
-                baseline_run = (baseline_benches[0]).runs[0]
+            deadline_violation = []
+            deadline_slack = []
+            baseline_run = (baseline_benches[0]).runs[0]
+            job_deadline_violation = []
+            job_deadline_slack = []
+
+
+            start_time_base = min(base_jobgroup.start for user in baseline_run.users for base_jobgroup in user.jobgroups)
+            for job_type in JOB_TYPES:
                 for user in run.users:
-                    for job_type in JOB_TYPES:
-                        job_deadline_miss = []
-                        job_deadline_gain = []
+                    if run.scheduler != args.compare_to:
                         for jobgroup in user.jobgroups:
                             if jobgroup.job_type != job_type:
                                 continue
 
-                            baseline_jobgroup = [base_jobgroup for user in baseline_run.users for base_jobgroup in user.jobgroups if base_jobgroup.name == jobgroup.name]
+
+
+                            baseline_jobgroup = [base_jobgroup for user_base in baseline_run.users for base_jobgroup in user_base.jobgroups if base_jobgroup.name == jobgroup.name]
                             if len(baseline_jobgroup) == 0:
                                 print("skipping: " + jobgroup.name + " for: " + baseline_run.scheduler)
                                 continue
@@ -177,83 +188,252 @@ def create_table(args):
                             # print("running: " + jobgroup.name + " for: " + run.scheduler)
                             # print(f"name: {baseline_jobgroup.name}")
                             # print(f"target: {jobgroup.total_time} base: {baseline_jobgroup.total_time}")
-                            if jobgroup.total_time > baseline_jobgroup.total_time:
-                                deadline_miss.append(jobgroup.total_time - baseline_jobgroup.total_time)
-                                job_deadline_miss.append(jobgroup.total_time - baseline_jobgroup.total_time)
+
+
+                            offset_target_end = jobgroup.end - start_time
+                            offset_base_end = baseline_jobgroup.end - start_time_base
+                            deadline_ratio = ((offset_target_end - offset_base_end)/ baseline_jobgroup.total_time) 
+                            # print(f"target: {offset_target_end} base: {offset_base_end}")
+                            # print(f"ratio: {deadline_ratio}")
+                            if deadline_ratio > 0:
+                                deadline_violation.append(deadline_ratio)
+                                job_deadline_violation.append(deadline_ratio)
                             else:
-                                deadline_gain.append(baseline_jobgroup.total_time - jobgroup.total_time)
-                                job_deadline_gain.append(baseline_jobgroup.total_time - jobgroup.total_time)
+                                deadline_slack.append(deadline_ratio)
+                                job_deadline_slack.append(deadline_ratio)
 
-                        job_sum_deadline_miss = sum(job_deadline_miss)
-                        job_avg_deadline_miss = get_average(job_deadline_miss) 
-                        job_avg_10_deadline_miss = get_worst_10_percent(job_deadline_miss)
-                        job_avg_1_deadline_miss = get_worst_1_percent(job_deadline_miss)
+                job_avg_deadline_miss = get_average(job_deadline_violation) 
+                job_misses = len(job_deadline_violation)
 
-
-                        job_sum_deadline_gain = sum(job_deadline_gain)
-                        job_avg_deadline_gain = get_average(job_deadline_gain) 
-                        job_avg_10_deadline_gain = get_worst_10_percent(job_deadline_gain)
-                        job_avg_1_deadline_gain = get_worst_1_percent(job_deadline_gain)
+                job_avg_deadline_gain = get_average(job_deadline_slack) 
+                job_gains = len(job_deadline_slack)
 
 
-                        run_row.extend([
-                            (f"{job_type} Total missed deadline time", job_sum_deadline_miss),
-                            (f"{job_type} Total gained deadline time", job_sum_deadline_gain),
-
-                            (f"{job_type} Average missed deadline time", job_avg_deadline_miss),
-                            (f"{job_type} Worst 10% missed deadline time", job_avg_10_deadline_miss),
-                            (f"{job_type} Worst 1% missed deadline time", job_avg_1_deadline_miss),
-
-                            (f"{job_type} Average gained deadline time", job_avg_deadline_gain),
-                            (f"{job_type} Worst 10% gained deadline time", job_avg_10_deadline_gain),
-                            (f"{job_type} Worst 1% gained deadline time", job_avg_1_deadline_gain),
-                        ])
-
-                        
-            sum_deadline_miss = sum(deadline_miss)
-            avg_deadline_miss = get_average(deadline_miss) 
-            avg_10_deadline_miss = get_worst_10_percent(deadline_miss)
-            avg_1_deadline_miss = get_worst_1_percent(deadline_miss)
+                run_row.extend([
+                    (f"{job_type} DVR", job_avg_deadline_miss),
+                    (f"{job_type} violation count", job_misses),
+                    (f"{job_type} DSR", job_avg_deadline_gain),
+                    (f"{job_type} slack count", job_gains),
+                ])
 
 
-            sum_deadline_gain = sum(deadline_gain)
-            avg_deadline_gain = get_average(deadline_gain) 
-            avg_10_deadline_gain = get_worst_10_percent(deadline_gain)
-            avg_1_deadline_gain = get_worst_1_percent(deadline_gain)
+            worst_user_gain = None
+            best_user_gain = None
+            worst_user_miss = None
+            best_user_miss = None
+            for user in run.users:
+                for jobgroup in user.jobgroups:
+
+                    baseline_jobgroup = [base_jobgroup for user in baseline_run.users for base_jobgroup in user.jobgroups if base_jobgroup.name == jobgroup.name]
+                    if len(baseline_jobgroup) == 0:
+                        print("skipping: " + jobgroup.name + " for: " + baseline_run.scheduler)
+                        continue
+
+                    baseline_jobgroup = baseline_jobgroup[0]
+                    # print("running: " + jobgroup.name + " for: " + run.scheduler)
+                    # print(f"name: {baseline_jobgroup.name}")
+                    # print(f"target: {jobgroup.total_time} base: {baseline_jobgroup.total_time}")
+
+                    offset_target_end = jobgroup.end - start_time
+                    offset_base_end = baseline_jobgroup.end - start_time_base
+                    deadline_ratio = ((offset_target_end - offset_base_end)/ baseline_jobgroup.total_time) 
+                    if deadline_ratio > 0:
+                        deadline_violation.append(deadline_ratio)
+                        job_deadline_violation.append(deadline_ratio)
+                    else:
+                        deadline_slack.append(deadline_ratio)
+                        job_deadline_slack.append(deadline_ratio)
+
+                job_avg_deadline_miss = get_average(job_deadline_violation) 
+
+                job_avg_deadline_miss = get_average(job_deadline_violation) 
+                job_misses = len(job_deadline_violation)
+
+                job_avg_deadline_gain = get_average(job_deadline_slack) 
+                job_gains = len(job_deadline_slack)
+
+                if worst_user_gain == None or worst_user_gain > job_avg_deadline_gain:
+                    worst_user_gain = job_avg_deadline_gain
+
+                if worst_user_miss == None or worst_user_miss < job_avg_deadline_miss:
+                    worst_user_miss = job_avg_deadline_miss
+
+                if best_user_miss == None or best_user_miss > job_avg_deadline_miss:
+                    best_user_miss = job_avg_deadline_miss
+
+                if best_user_gain == None or best_user_gain < job_avg_deadline_gain:
+                    best_user_gain = job_avg_deadline_gain
+
+                run_row.extend([
+                    (f"{user.name} DVR", job_avg_deadline_miss),
+                    (f"{user.name} violation count", job_misses),
+                    (f"{user.name} DSR", job_avg_deadline_gain),
+                    (f"{user.name} slack count", job_gains),
+                ])
+
 
             run_row.extend([
-                ("Total missed deadline time", sum_deadline_miss),
-                ("Total gained deadline time", sum_deadline_gain),
+                (f"best user DVR", best_user_miss),
+                (f"worst user DVR ", worst_user_miss),
+                (f"best user DSR", best_user_gain),
+                (f"worst user DSR", worst_user_gain),
+            ])
 
-                ("Average missed deadline time", avg_deadline_miss),
-                ("Worst 10% missed deadline time", avg_10_deadline_miss),
-                ("Worst 1% missed deadline time", avg_1_deadline_miss),
+                        
+            avg_deadline_miss = get_average(deadline_violation) 
+            deadline_miss = len(deadline_violation)
 
-                ("Average gained deadline time", avg_deadline_gain),
-                ("Worst 10% gained deadline time", avg_10_deadline_gain),
-                ("Worst 1% gained deadline time", avg_1_deadline_gain),
+            avg_deadline_gain = get_average(deadline_slack) 
+            deadline_gain = len(deadline_slack)
+
+            run_row.extend([
+
+                ("Total DVR", avg_deadline_miss),
+                ("Total violations", deadline_miss),
+
+                ("Total DSR", avg_deadline_gain),
+                ("Total gains", deadline_gain),
             ])
 
 
 
             # append the row
-            run_rows.append(run_row)
+            if run.config not in run_rows.keys():
+                run_rows[run.config] = []
+
+            run_rows[run.config].append(run_row)
 
         print(bench.app_name)
-        columns = [col[0] for col in run_rows[0]]
-        values = [[val[1] for val in row] for row in run_rows]
-        df = pd.DataFrame(values, columns=columns)
 
+    for config in CONFIGS:
+        if config not in run_rows.keys():
+            continue
+        run_data = run_rows[config]
+        columns = [col[0] for col in run_data[0]]
+        values = [[val[1] for val in row] for row in run_data]
+        df = pd.DataFrame(values, columns=columns)
         df = df.sort_values(by=["Config", "Scheduler"])
+
+        # make a dir if necessary
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+        df.to_csv(os.path.join(OUTPUT_DIR, f"{config}_run_data.csv"))
+
+
+
+
+
+
+def boxplot_deadline(args):
+
+    benches = get_benchmarks(args.scheduler, args.config)
+
+    
+
+
+
+    for config in CONFIGS:
+        fig_default, ax_default = plt.subplots()
+        labels_default = []
+        labels_partition = []
+        fig_partition, ax_partition = plt.subplots()
+        labels = []
+        for index, bench in enumerate(benches):
+            if bench.config != config:
+                continue
+
+            baseline_benches = None 
+            fig = None
+            ax = None
+            if "PARTITIONER" in bench.scheduler:
+                baseline_benches = get_benchmarks(args.compare_to + "_PARTITIONER", bench.config)
+                labels = labels_partition
+                ax = ax_partition
+            else:
+                baseline_benches = get_benchmarks(args.compare_to, bench.config)
+                labels = labels_default
+                ax = ax_default
+
+            deadline_violation = []
+            deadline_slack = []
+            for iteration, run in enumerate(bench.runs):
+
+                if run.scheduler == args.compare_to or run.scheduler == args.compare_to + "_PARTITIONER":
+                    continue
+
+
+
+                labels.append(FORMAL_NAME[run.scheduler])
+                # get start times
+                start_time = min(jobgroup.start for user in run.users for jobgroup in user.jobgroups)
+
+                # compare to fair scheduler
+                baseline_run = (baseline_benches[0]).runs[0]
+
+                start_time_base = min(base_jobgroup.start for user in baseline_run.users for base_jobgroup in user.jobgroups)
+                for user in run.users:
+                    if run.scheduler != args.compare_to:
+                        for jobgroup in user.jobgroups:
+                            baseline_jobgroup = [base_jobgroup for user_base in baseline_run.users for base_jobgroup in user_base.jobgroups if base_jobgroup.name == jobgroup.name]
+                            if len(baseline_jobgroup) == 0:
+                                print("skipping: " + jobgroup.name + " for: " + baseline_run.scheduler)
+                                continue
+
+                            baseline_jobgroup = baseline_jobgroup[0]
+                            # print("running: " + jobgroup.name + " for: " + run.scheduler)
+                            # print(f"name: {baseline_jobgroup.name}")
+                            # print(f"target: {jobgroup.total_time} base: {baseline_jobgroup.total_time}")
+
+
+                            offset_target_end = jobgroup.end - start_time
+                            offset_base_end = baseline_jobgroup.end - start_time_base
+                            deadline_ratio = ((offset_target_end - offset_base_end)/ baseline_jobgroup.total_time) 
+                            # print(f"target: {offset_target_end} base: {offset_base_end}")
+                            # print(f"ratio: {deadline_ratio}")
+                            if deadline_ratio > 0:
+                                deadline_violation.append(deadline_ratio)
+                            else:
+                                deadline_slack.append(deadline_ratio)
+                print(f"done {run.scheduler}, {run.config}, with amount of deadlines: {len(deadline_violation + deadline_slack)}")
+    
+            position = len(labels) - 1
+            ax.boxplot(deadline_violation + deadline_slack, positions=[position], widths=0.6)            
+
+
+        ax_default.set_xticks(range(len(labels_default)))
+        ax_default.set_xticklabels(labels_default, rotation=45, ha='right')
+        ax_default.axhline(y=0, color='red', linestyle='--', linewidth=1)
+
+        plt.tight_layout()
+        if args.show_plot:
+            plt.show()
 
 
         # make a dir if necessary
         os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-        df.to_csv(os.path.join(OUTPUT_DIR, f"{bench.scheduler}_{bench.config}_run_data.csv"))
+        filename = os.path.join(OUTPUT_DIR, f"{config}_deadline_boxplots_default.{FIG_FORMAT}") 
+        print(f"saving {filename}")
+        fig_default.savefig(filename, bbox_inches='tight')
+        plt.close(fig_default)
 
 
 
+        ax_partition.set_xticks(range(len(labels_partition)))
+        ax_partition.set_xticklabels(labels_partition, rotation=45, ha='right')
+        ax_partition.axhline(y=0, color='red', linestyle='--', linewidth=1)
+        plt.tight_layout()
+
+        if args.show_plot:
+            plt.show()
+
+        # make a dir if necessary
+        os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+        filename = os.path.join(OUTPUT_DIR, f"{config}_deadline_boxplots_partition.{FIG_FORMAT}") 
+        print(f"saving {filename}")
+        fig_partition.savefig(filename, bbox_inches='tight')
+        plt.close(fig_partition)
 
 
 def plot_and_save_cdf(target, baseline, target_name, base_name, folder, output):
@@ -359,46 +539,59 @@ def cdf(args):
 
                 
     elif args.change_type == "custom":
-        for configuration in CONFIGS:
-            fig, ax = plt.subplots()
-            for bench in benches:
-                if configuration != bench.config:
-                    continue
-                if "PARTITIONER" not in bench.scheduler and "DEFAULT" not in bench.scheduler:
-                    continue
-                for run in bench.runs:
-
-                    # no need to cmpare baseline to itself
-                    if run.scheduler not in args.compare_to:
+        for config in CONFIGS:
+            for job_type in JOB_TYPES:
+                fig, ax = plt.subplots()
+                for bench in benches:
+                    if config not in bench.config:
                         continue
-                    print(f"using schedule: {run.scheduler}")
-
-                    all_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups]
-
-                    # plot data
-
-                    ax.ecdf(all_rt, label=f"{FORMAL_NAME[run.scheduler]}", linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
-
+                    if "PARTITIONER" not in bench.scheduler:
+                        continue
+                    if bench.scheduler not in args.compare_to:
+                        continue
+                    empty = True
+                    for run in bench.runs:
 
 
-            ax.grid(True)
-            ax.legend()
-            # ax.set_title(f"Response time ECDF :{run.config}")
-            ax.set_xlabel("Response time (s)")
-            ax.set_ylabel("Fraction of jobs")
-            ax.set_ylim(ymin=0)
-            ax.set_xlim(xmin=0)
+                        # all_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups]
 
-            if args.show_plot:
-                plt.show()
+                        job_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups if jobgroup.job_type == job_type]
+
+                        # if no such job for this benchmark, continue
+                        if len(job_rt) == 0:
+                            continue
+
+                        # no need to cmpare baseline to itself
+                        print(f"using schedule: {run.scheduler}")
+                        # get data for baseline
+
+                        # plot data
+
+                        ax.ecdf(job_rt, label=f"{FORMAL_NAME[run.scheduler]}", linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
+                        empty = False
 
 
-            os.makedirs(OUTPUT_DIR, exist_ok=True)
+                if empty:
+                    continue
 
-            filename = os.path.join(OUTPUT_DIR, f"{configuration}_custom_ecdf.{FIG_FORMAT}")
-            print(f"saving {filename}")
-            fig.savefig(filename)
-            plt.close(fig)
+                ax.grid(True)
+                ax.legend()
+                # ax.set_title(f"Response time ECDF :{run.config}")
+                ax.set_xlabel("Response time (s)")
+                ax.set_ylabel("Fraction of jobs")
+                ax.set_ylim(ymin=0)
+                ax.set_xlim(xmin=0)
+
+                if args.show_plot:
+                    plt.show()
+
+
+                os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+                filename = os.path.join(OUTPUT_DIR, f"{config}_{job_type}ecdf_partition.{FIG_FORMAT}")
+                print(f"saving {filename}")
+                fig.savefig(filename)
+                plt.close(fig)
 
 
 
@@ -548,9 +741,10 @@ def timeline(args):
 
 
             # make a dir if necessary
-            os.makedirs(OUTPUT_DIR, exist_ok=True)
+            save_dir = os.path.join(OUTPUT_DIR, f"{run.config}")
+            os.makedirs(save_dir, exist_ok=True)
 
-            filename = os.path.join(OUTPUT_DIR, f"{run.scheduler}_{run.config}_user_job_timeline.{FIG_FORMAT}")
+            filename = os.path.join(save_dir, f"{run.scheduler}_{run.iteration}_user_job_timeline.{FIG_FORMAT}")
 
             fig.savefig(filename)
             plt.close(fig)
@@ -620,7 +814,7 @@ def get_benchmarks(isolate_scheduler="", isolate_config=""):
         file_path = os.path.join(BENCH_PATH, filename)
         if os.path.isfile(file_path) and filename.endswith('.json'):
             scheduler, config = get_human_name(filename)
-            if scheduler == "":
+            if scheduler == "" or config == "":
                 continue
             tup = (scheduler, config)
             if isolate_scheduler in scheduler and isolate_config in config:
@@ -651,7 +845,7 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers(title="Commands")
 
     create_table_parser = subparsers.add_parser("create_table", help="Create an excel table that summerizes all results")
-    create_table_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="DEFAULT_FAIR" )
+    create_table_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="CUSTOM_FAIR" )
     create_table_parser.set_defaults(func=create_table)
 
     timeline_parser = subparsers.add_parser("timeline", help="Create event timeline images")
@@ -665,9 +859,15 @@ if __name__ == "__main__":
 
     cdf_parser = subparsers.add_parser("cdf", help="Create ECDFs of response time")
     cdf_parser.add_argument("--change_type", help="Show different type of cdf metrics. Values: user, job, total, custom", default="total")
-    cdf_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="DEFAULT_FAIR" )
+    cdf_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="CUSTOM_FAIR" )
     cdf_parser.set_defaults(func=cdf)
 
+
+
+    boxplot_parser = subparsers.add_parser("boxplots", help="Create boxplots of deadline violations")
+    # cdf_parser.add_argument("--change_type", help="Show different type of cdf metrics. Values: user, job, total, custom", default="total")
+    boxplot_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="CUSTOM_FAIR" )
+    boxplot_parser.set_defaults(func=boxplot_deadline)
 
     # unfairness_parser = subparsers.add_parser("unfairness", help="Create unfairness boxplots")
     # unfairness_parser.add_argument("--change_type", help="Show different type of unfairness metrics. Values: user, proportional, absolute", default="user")

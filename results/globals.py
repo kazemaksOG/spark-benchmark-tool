@@ -6,14 +6,16 @@ EXECUTOR_AMOUNT = 8
 CORES_PER_EXEC = 4
 CORES = EXECUTOR_AMOUNT * CORES_PER_EXEC
 
+# Macro benchmark settings
 TIME_FRAME_S = 500
-SCALING = 2
+SCALING = 10
+MACRO_MAX_JOB_RUNTIME_S = 60
 
-PARALLELIZATION_SCALING = 30
+PARALLELIZATION_SCALING = 24
 
-FIG_FORMAT = "png"
+FIG_FORMAT = "svg"
 
-RUN_PATH="./data/microbench_5/target"
+RUN_PATH="./data/microbench_7/target"
 BENCH_PATH=f"{RUN_PATH}/bench_outputs"
 OUTPUT_DIR="./metrics"
 
@@ -22,52 +24,97 @@ APPS_URL="http://localhost:18080/api/v1/applications"
 
 
 SCHEDULERS = [
+    "CUSTOM_FAIR_PARTITIONER",
     "CUSTOM_FAIR",
+
+    "CUSTOM_RANDOM_PARTITIONER",
     "CUSTOM_RANDOM",
-    "CUSTOM_SHORT",
-    "DEFAULT_FIFO",
+
+    "TRUE_FIFO_PARTITIONER",
+    "TRUE_FIFO",
+
     "DEFAULT_FAIR_PARTITIONER",
     "DEFAULT_FAIR",
+
+    "CUSTOM_CLUSTERFAIR_PARTITIONER",
+    "CUSTOM_CLUSTERFAIR",
+
+    "CUSTOM_USERCLUSTERFAIR_PARTITIONER", # has to be before regular because of string comparison
+    "CUSTOM_USERCLUSTERFAIR",
+
+    # "CUSTOM_SHORT",
     # "AQE_CUSTOM_FAIR",
     # "AQE_CUSTOM_RANDOM",
     # "AQE_CUSTOM_SHORT",
     # "AQE_DEFAULT_FIFO",
     # "AQE_DEFAULT_FAIR",
-    "CUSTOM_CLUSTERFAIR",
-    "CUSTOM_USERCLUSTERFAIR_PARTITIONER", # has to be before regular because of string comparison
-    "CUSTOM_USERCLUSTERFAIR",
-
 ]
 
 FORMAL_NAME = {
-    "DEFAULT_FAIR": "Fair",
-    "DEFAULT_FAIR_PARTITIONER": "Fair-P",
-    "CUSTOM_USERCLUSTERFAIR": "UWFQ",
-    "CUSTOM_USERCLUSTERFAIR_PARTITIONER": "UWFQ-P",
+    "CUSTOM_FAIR_PARTITIONER": "UJF-P",
+    "CUSTOM_FAIR": "UJF",
+
+    "CUSTOM_RANDOM_PARTITIONER": "Random-P",
     "CUSTOM_RANDOM": "Random",
-    "CUSTOM_SHORT": "SJF",
-    "CUSTOM_FAIR": "User Fair",
+
+    "TRUE_FIFO_PARTITIONER": "T-Fifo-P",
+    "TRUE_FIFO": "T-Fifo",
+
+    "DEFAULT_FAIR_PARTITIONER": "Fair-P",
+    "DEFAULT_FAIR": "Fair",
+
+    "CUSTOM_CLUSTERFAIR_PARTITIONER": "CFQ-P",
+    "CUSTOM_CLUSTERFAIR": "CFQ",
+
+    "CUSTOM_USERCLUSTERFAIR_PARTITIONER": "UWFQ-P", # has to be before regular because of string comparison
+    "CUSTOM_USERCLUSTERFAIR": "UWFQ",
 }
 
 
 SCHEDULER_COLOR = {
-    "DEFAULT_FAIR": "tab:blue",
-    "DEFAULT_FAIR_PARTITIONER": "tab:orange",
-    "CUSTOM_USERCLUSTERFAIR": "tab:green",
-    "CUSTOM_USERCLUSTERFAIR_PARTITIONER": "tab:red",
-    "CUSTOM_RANDOM": "tab:purple",
-    "CUSTOM_SHORT": "tab:brown",
-    "CUSTOM_FAIR": "tab:cyan",
+
+
+    "CUSTOM_FAIR_PARTITIONER": "tab:blue",
+    "CUSTOM_FAIR": "tab:blue",
+
+    "CUSTOM_RANDOM_PARTITIONER": "tab:orange",
+    "CUSTOM_RANDOM": "tab:orange",
+
+    "TRUE_FIFO_PARTITIONER": "tab:green",
+    "TRUE_FIFO": "tab:green",
+
+    "DEFAULT_FAIR_PARTITIONER": "tab:red",
+    "DEFAULT_FAIR": "tab:red",
+
+    "CUSTOM_CLUSTERFAIR_PARTITIONER": "tab:purple",
+    "CUSTOM_CLUSTERFAIR": "tab:purple",
+
+    "CUSTOM_USERCLUSTERFAIR_PARTITIONER": "tab:brown", # has to be before regular because of string comparison
+    "CUSTOM_USERCLUSTERFAIR": "tab:brown",
+
 }
 
 SCHEDULER_LINE = {
-    "DEFAULT_FAIR": "-",
-    "DEFAULT_FAIR_PARTITIONER": (0, (3, 1, 1, 1)),
-    "CUSTOM_USERCLUSTERFAIR": (0, (5, 5)),
-    "CUSTOM_USERCLUSTERFAIR_PARTITIONER": (0, (5, 1)),
+    "CUSTOM_FAIR_PARTITIONER": "-",
+    "CUSTOM_FAIR": "-",
+
+    "CUSTOM_RANDOM_PARTITIONER": (5, (10, 3)),
     "CUSTOM_RANDOM": (5, (10, 3)),
-    "CUSTOM_SHORT": (0, (1, 5)),
-    "CUSTOM_FAIR": (0, (1, 1)),
+
+    "TRUE_FIFO_PARTITIONER": (0, (1, 5)),
+    "TRUE_FIFO": (0, (1, 5)),
+
+    "DEFAULT_FAIR_PARTITIONER":  (0, (5, 5)),
+    "DEFAULT_FAIR":  (0, (5, 5)),
+
+    "CUSTOM_CLUSTERFAIR_PARTITIONER": (0, (3, 1, 1, 1)),
+    "CUSTOM_CLUSTERFAIR": (0, (3, 1, 1, 1)),
+
+    "CUSTOM_USERCLUSTERFAIR_PARTITIONER": (0, (5, 1)), # has to be before regular because of string comparison
+    "CUSTOM_USERCLUSTERFAIR": (0, (5, 1)),
+
+
+
 }
 
 CONFIGS = [
@@ -75,6 +122,7 @@ CONFIGS = [
     "4_large_users",
     "2_power_2_small_users",
     "4_super_small_users",
+    "macro_config",
 ]
 
 

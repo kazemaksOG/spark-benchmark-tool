@@ -45,6 +45,9 @@ class Job:
         end = start + self.runtime
 
         return (start, end)
+    def get_runtime(self):
+        start, end = self.get_times()
+        return end - start
 
 
 
@@ -86,23 +89,18 @@ def parse_users(df, bench_start_time):
         user.add_task(row)
     return user_id_to_user
 
-def print_stats(df):
-
-
-    resource_runtimes = df["resource_run_time"]
+def print_stats(user_list):
 
 
     print("total amount of resource time:")
-    print(sum(resource_runtimes))
+    total_runtime = [job.get_runtime() for user in user_list.values() for job in user.workflow_id_to_job.values()]
+    print(sum(total_runtime))
     print("resource time per second:")
-    print(sum(resource_runtimes) / TIME_FRAME_S)
+    print(sum(total_runtime) / TIME_FRAME_S)
 
 
-def plot_histogram(df):
+def plot_histogram(user_list):
 
-    bench_start_time = min(df["ts_submit_seconds"])
-    print(f"bench start: {bench_start_time}")
-    user_list = parse_users(df, bench_start_time)
     job_runtimes = []
 
     for user_id, user in user_list.items():
@@ -124,11 +122,8 @@ def plot_histogram(df):
     fig.savefig(os.path.join(OUTPUT_DIR, f"macro_historgram.{FIG_FORMAT}"))
 
 
-def plot_timeline(df):
+def plot_timeline(user_list):
 
-    bench_start_time = min(df["ts_submit_seconds"])
-    print(f"bench start: {bench_start_time}")
-    user_list = parse_users(df, bench_start_time)
 
     cmap = plt.get_cmap("viridis", len(user_list))
     user_colors = {user: cmap(i) for i, user in enumerate(user_list.keys())}
@@ -203,11 +198,7 @@ def plot_timeline(df):
     plt.close(fig)
 
 
-def plot_congestion(df):
-
-    bench_start_time = min(df["ts_submit_seconds"])
-    print(f"bench start: {bench_start_time}")
-    user_list = parse_users(df, bench_start_time)
+def plot_congestion(user_list):
 
 
     jobgroup_bins = Bin(0, TIME_FRAME_S)
@@ -270,10 +261,6 @@ def plot_congestion(df):
 
 def make_bench_config(df):
 
-    bench_start_time = min(df["ts_submit_seconds"])
-    print(f"bench start: {bench_start_time}")
-    user_list = parse_users(df, bench_start_time)
-
     config = []
     for user_id, user in user_list.items():
         user_config = {}
@@ -316,11 +303,28 @@ def make_bench_config(df):
 
 df = pd.read_csv("./macro_benchmarks.csv")
 
-print_stats(df)
 
-# plot_histogram(df)
-# plot_timeline(df)
-# plot_congestion(df)
-make_bench_config(df)
+bench_start_time = min(df["ts_submit_seconds"])
+print(f"bench start: {bench_start_time}")
+user_list = parse_users(df, bench_start_time)
+
+filtered_user_list = {}
+
+
+for user_id, user in user_list.items():
+    filter_user = User(user.name, user.bench_start_time)
+    for jobgroup_id, jobgroup in user.workflow_id_to_job.items():
+        if jobgroup.get_runtime() < MACRO_MAX_JOB_RUNTIME_S:
+            filter_user.workflow_id_to_job[jobgroup_id] = jobgroup
+    filtered_user_list[user_id] = filter_user
+
+user_list = filtered_user_list
+
+print_stats(user_list)
+
+plot_histogram(user_list)
+plot_timeline(user_list)
+plot_congestion(user_list)
+make_bench_config(user_list)
 
 
