@@ -13,10 +13,7 @@ import org.apache.spark.sql.execution.ui.SparkListenerSQLAdaptiveExecutionUpdate
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionEnd;
 import org.apache.spark.sql.execution.ui.SparkListenerSQLExecutionStart;
 
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -33,7 +30,7 @@ public class JobProfileContainer {
     private static final String DEFAULT_JOB_GROUP = "DEFAULT";
     private static final String JOB_GROUP_PROPERTY = "spark.jobGroup.id";
 
-
+    private static final int MAX_HISTORIC_JOBS = 5;
 
     private final Map<Integer, StageInfo> widowStages = new ConcurrentHashMap<>();
     private final Map<Integer, SqlJobProfile> sqlIdToJobProfile;
@@ -64,7 +61,13 @@ public class JobProfileContainer {
 
         long totalRuntime = 0L;
         long jobCount = 0L;
-        for(JobProfile historyProfile : jobClassToJobProfiles.computeIfAbsent(jobProfile.getJobClass(), key -> new LinkedList<>())) {
+
+
+        LinkedList<JobProfile> historicJobs = jobClassToJobProfiles.computeIfAbsent(jobProfile.getJobClass(), key -> new LinkedList<>());
+        ListIterator<JobProfile> iterator = historicJobs.listIterator(historicJobs.size());
+        while(iterator.hasPrevious()) {
+            if (jobCount >= MAX_HISTORIC_JOBS) break;
+            JobProfile historyProfile = iterator.previous();
             if(historyProfile.isFinished()) {
                 System.out.println("##### INFO: using jobgroup:" + historyProfile.getJobGroupId());
                 System.out.println("##### INFO: runtime:" + historyProfile.getRuntime());
@@ -107,7 +110,11 @@ public class JobProfileContainer {
             Set<Integer> stageNodeIds = stageNode.getStageNodeIds();
             long totalRuntime = 0L;
             long jobCount = 0L;
-            for(JobProfile historyProfile : jobClassToJobProfiles.computeIfAbsent(sqlJobProfile.getJobClass(), key -> new LinkedList<>())) {
+            LinkedList<JobProfile> historicJobs = jobClassToJobProfiles.computeIfAbsent(sqlJobProfile.getJobClass(), key -> new LinkedList<>());
+            ListIterator<JobProfile> iterator = historicJobs.listIterator(historicJobs.size());
+            while(iterator.hasPrevious()) {
+                if (jobCount >= MAX_HISTORIC_JOBS) break;
+                JobProfile historyProfile = iterator.previous();
                 if(historyProfile.isFinished()) {
                     if(historyProfile instanceof SqlJobProfile sqlHistoryProfile) {
                         StageNode historyStageNode = sqlHistoryProfile.getStageNode(stageNodeIds);
@@ -168,8 +175,11 @@ public class JobProfileContainer {
         long totalRuntime = 0L;
         long jobCount = 0L;
 
-
-        for(JobProfile historyProfile : jobClassToJobProfiles.computeIfAbsent(jobProfile.getJobClass(), key -> new LinkedList<>())) {
+        LinkedList<JobProfile> historicJobs = jobClassToJobProfiles.computeIfAbsent(jobProfile.getJobClass(), key -> new LinkedList<>());
+        ListIterator<JobProfile> iterator = historicJobs.listIterator(historicJobs.size());
+        while(iterator.hasPrevious()) {
+            if (jobCount >= MAX_HISTORIC_JOBS) break;
+            JobProfile historyProfile = iterator.previous();
             if(historyProfile.isFinished()) {
                 if(historyProfile instanceof SqlJobProfile sqlHistoryProfile) {
                     StageNode historyStageNode = sqlHistoryProfile.getStageNode(stageNodeIds);
@@ -280,6 +290,10 @@ public class JobProfileContainer {
 
     public void handleSparkListenerSQLExecutionEnd(SparkListenerSQLExecutionEnd sqlEvent) {
         SqlJobProfile jobProfile = executionIdToJobProfile.get(sqlEvent.executionId());
+        if(jobProfile == null) {
+            System.out.println("############ ERROR: Spark plan ended before being registered, this makes no sense honestly");
+            return;
+        }
         jobProfile.updateJobCompletion();
     }
 
