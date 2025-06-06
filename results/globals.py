@@ -5,17 +5,23 @@
 EXECUTOR_AMOUNT = 8
 CORES_PER_EXEC = 4
 CORES = EXECUTOR_AMOUNT * CORES_PER_EXEC
+FIG_FORMAT = "svg"
+TASK_TRACKING_ENABLED = False
 
 # Macro benchmark settings
-TIME_FRAME_S = 500
-SCALING = 10
-MACRO_MAX_JOB_RUNTIME_S = 60
 
+MACRO_CONFIG="./macro_benchmarks_hetero.csv"
+SCALING = 2 # Hetero 2, homo 20
+FILTER_LARGE = False# Hetero false, homo True
+
+TIME_FRAME_S = 500
+TIME_SCALE = 1
 PARALLELIZATION_SCALING = 24
 
-FIG_FORMAT = "svg"
 
-RUN_PATH="./data/microbench_7/target"
+# paths to benchmarks
+
+RUN_PATH="./data/macro_benchmark_hetero/target"
 BENCH_PATH=f"{RUN_PATH}/bench_outputs"
 OUTPUT_DIR="./metrics"
 

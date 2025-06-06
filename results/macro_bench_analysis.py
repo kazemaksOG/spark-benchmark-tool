@@ -19,6 +19,7 @@ WORKLOAD_ITERATIONS = 1
 WORKLOAD_RATE = 0
 WORKLOAD_FREQUENCY = "PARA"
 
+plt.rcParams.update({'font.size': 20})
 
 
 class Job:
@@ -31,7 +32,7 @@ class Job:
 
 
     def add_task(self, row):
-        start_time = row["ts_submit_seconds"] - self.bench_start_time
+        start_time = (row["ts_submit_seconds"] - self.bench_start_time) * TIME_SCALE
         runtime = row["resource_run_time"] * MS_TO_S
         scaled_runtime = SCALING * runtime / CORES
 
@@ -113,13 +114,12 @@ def plot_histogram(user_list):
     ax.hist(job_runtimes, bins=100, edgecolor='black', alpha=0.7)
     ax.axvline(x=5, color='red', linestyle='--', linewidth=1, label='Reference Line at x=0')
 
-    ax.set_title("Histogram of runtime")
     ax.set_xlabel("Runtime (s)")
     ax.set_ylabel("Amount of jobs")
     ax.grid(True)
     plt.show()
 
-    fig.savefig(os.path.join(OUTPUT_DIR, f"macro_historgram.{FIG_FORMAT}"))
+    fig.savefig(os.path.join(OUTPUT_DIR, f"macro_benchmark_historgram.{FIG_FORMAT}"))
 
 
 def plot_timeline(user_list):
@@ -162,15 +162,15 @@ def plot_timeline(user_list):
             jobgroup_endtime = jobgroup_start_offset + jobgroup.end - jobgroup.start
             ax.plot([jobgroup_endtime, jobgroup_endtime], [jobgroup_offset, jobgroup_offset + jobgroup_height],alpha=0.5, color='red', linestyle="-", linewidth=2)
 
-            for stage in jobgroup.subbins:
-
-                # to center the stages, add 1, so it ignores the ones on the edges of jobgroup
-                stage_offset = jobgroup_offset + (jobgroup_height / (jobgroup.max + 1)) * (stage.pos + 1)
-                stage_start_offset = stage.start
-                stage_end_offset = stage.end
-                ax.plot([stage_start_offset, stage_end_offset], [stage_offset,stage_offset], color='gray', linewidth=2)
-                ax.scatter(stage_start_offset, stage_offset, color='green', s=10, zorder=2)  # Start marker
-                ax.scatter(stage_end_offset, stage_offset, color='red', s=10, zorder=2)  # End marker
+            # for stage in jobgroup.subbins:
+            #
+            #     # to center the stages, add 1, so it ignores the ones on the edges of jobgroup
+            #     stage_offset = jobgroup_offset + (jobgroup_height / (jobgroup.max + 1)) * (stage.pos + 1)
+            #     stage_start_offset = stage.start
+            #     stage_end_offset = stage.end
+            #     ax.plot([stage_start_offset, stage_end_offset], [stage_offset,stage_offset], color='gray', linewidth=2)
+            #     ax.scatter(stage_start_offset, stage_offset, color='green', s=10, zorder=2)  # Start marker
+            #     ax.scatter(stage_end_offset, stage_offset, color='red', s=10, zorder=2)  # End marker
 
         # move the y position by the amount of overlapping jobgroup bins
         y_postion+= JOBGROUP_BIN_SIZE * jobgroup_bins.max
@@ -237,13 +237,11 @@ def plot_congestion(user_list):
     x = np.arange(500)
     axes[0].scatter(x, users_per_second, color='blue', alpha=0.6)
     axes[0].axhline(y=0, color='red', linestyle='--', linewidth=1, label='Reference Line at x=0')
-    axes[0].set_title('Users in each second')
     axes[0].set_ylabel('User amount')
 
     # Second scatterplot
     axes[1].scatter(x, jobs_per_second, color='green', alpha=0.6)
     axes[1].axhline(y=0, color='red', linestyle='--', linewidth=1, label='Reference Line at x=0')
-    axes[1].set_title('Jobs in each second')
     axes[1].set_xlabel('Time (s)')
     axes[1].set_ylabel('Jobs')
 
@@ -254,7 +252,7 @@ def plot_congestion(user_list):
         
 
     os.makedirs(OUTPUT_DIR, exist_ok=True)
-    fig.savefig(os.path.join(OUTPUT_DIR, f"macro_benchmarks_congestion.{FIG_FORMAT}"))
+    fig.savefig(os.path.join(OUTPUT_DIR, f"macro_benchmark_congestion.{FIG_FORMAT}"))
     plt.close(fig)
 
 
@@ -301,24 +299,32 @@ def make_bench_config(df):
         print("Saving data: " + filename)
         json.dump(config, file)
 
-df = pd.read_csv("./macro_benchmarks.csv")
+
+
+df = pd.read_csv(MACRO_CONFIG)
 
 
 bench_start_time = min(df["ts_submit_seconds"])
 print(f"bench start: {bench_start_time}")
 user_list = parse_users(df, bench_start_time)
 
-filtered_user_list = {}
 
 
-for user_id, user in user_list.items():
-    filter_user = User(user.name, user.bench_start_time)
-    for jobgroup_id, jobgroup in user.workflow_id_to_job.items():
-        if jobgroup.get_runtime() < MACRO_MAX_JOB_RUNTIME_S:
-            filter_user.workflow_id_to_job[jobgroup_id] = jobgroup
-    filtered_user_list[user_id] = filter_user
+if FILTER_LARGE:
+    filtered_user_list = {}
+    job_list = [jobgroup.get_runtime() for user in user_list.values() for jobgroup in user.workflow_id_to_job.values()]
+    med = np.median(job_list)
+    cutoff = med * 5
+    print(f"using median cuttoff: {cutoff}")
 
-user_list = filtered_user_list
+    for user_id, user in user_list.items():
+        filter_user = User(user.name, user.bench_start_time)
+        for jobgroup_id, jobgroup in user.workflow_id_to_job.items():
+            if jobgroup.get_runtime() < cutoff:
+                filter_user.workflow_id_to_job[jobgroup_id] = jobgroup
+        filtered_user_list[user_id] = filter_user
+
+    user_list = filtered_user_list
 
 print_stats(user_list)
 

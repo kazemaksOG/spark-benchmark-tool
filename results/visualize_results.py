@@ -1,3 +1,4 @@
+from numpy import ones_like
 from numpy.__config__ import CONFIG
 from globals import *
 from benchmark_classes import *
@@ -29,6 +30,7 @@ def create_table(args):
             baseline_benches = get_benchmarks(args.compare_to + "_PARTITIONER", bench.config)
         else:
             baseline_benches = get_benchmarks(args.compare_to, bench.config)
+        current_scheduler = []
         for iteration, run in enumerate(bench.runs):
             print(f"Getting row elements for {run.app_name}, iteration: {iteration}")
 
@@ -38,6 +40,8 @@ def create_table(args):
             start_time = min(jobgroup.start for user in run.users for jobgroup in user.jobgroups)
             end_time = max(jobgroup.end for user in run.users for jobgroup in user.jobgroups)
 
+            job_amount = sum([1 for user in run.users for jobgroup in user.jobgroups])
+            print(f"total jobgroup amount: job_amount")
             # general metrics
             total_time = (end_time - start_time)
             cpu_time = run.get_cpu_time() 
@@ -73,9 +77,29 @@ def create_table(args):
             proportional_slowdown_avg_10 = get_worst_10_percent(all_proportional_slowdowns)
             
 
+
+
+
+            sorted_rt = np.sort(all_rt)
+
+            n = len(sorted_rt)
+            percent80 = int(np.floor(0.8 * n ))
+            percent95 = int(np.floor(0.95 * n ))
+
+            top_80_avg = get_average(sorted_rt[:percent80])
+            next_15_avg = get_average(sorted_rt[percent80:percent95])
+            last_5_avg = get_average(sorted_rt[percent95:])
+
+
+
+
             run_row.extend([
                 ("average response time", avg_rt),
                 ("average response time (worst10%)", avg_rt_10),
+                
+                ("average response time (worst85)", top_80_avg),
+                ("average response time (worst95)", next_15_avg),
+                ("average response time (worst100)", last_5_avg),
                 
                 ("average proportional slowdown", proportional_slowdown_avg),
                 ("average proportional slowdown (worst10%)", proportional_slowdown_avg_10),
@@ -301,9 +325,26 @@ def create_table(args):
             if run.config not in run_rows.keys():
                 run_rows[run.config] = []
 
+            current_scheduler.append(run_row)
             run_rows[run.config].append(run_row)
 
-        print(bench.app_name)
+
+        average_row = []
+        for index, tup in enumerate(current_scheduler[0]):
+            title = tup[0]
+            average = 0
+            for run in current_scheduler:
+                value = run[index][1]
+                if isinstance(value, str) or value is None:
+                    average = value 
+                    break
+                average += value / len(current_scheduler)
+            row = (title, average)
+            average_row.append(row)
+
+
+        run_rows[bench.config].append(average_row)
+        print(f"finished: bench.app_name")
 
     for config in CONFIGS:
         if config not in run_rows.keys():
@@ -338,12 +379,12 @@ def boxplot_deadline(args):
         labels_partition = []
         fig_partition, ax_partition = plt.subplots()
         labels = []
+        empty = True
         for index, bench in enumerate(benches):
             if bench.config != config:
                 continue
 
             baseline_benches = None 
-            fig = None
             ax = None
             if "PARTITIONER" in bench.scheduler:
                 baseline_benches = get_benchmarks(args.compare_to + "_PARTITIONER", bench.config)
@@ -395,10 +436,16 @@ def boxplot_deadline(args):
                             else:
                                 deadline_slack.append(deadline_ratio)
                 print(f"done {run.scheduler}, {run.config}, with amount of deadlines: {len(deadline_violation + deadline_slack)}")
+                empty = False
+                break
     
             position = len(labels) - 1
             ax.boxplot(deadline_violation + deadline_slack, positions=[position], widths=0.6)            
 
+
+
+        if empty:
+            continue
 
         ax_default.set_xticks(range(len(labels_default)))
         ax_default.set_xticklabels(labels_default, rotation=45, ha='right')
@@ -538,27 +585,28 @@ def cdf(args):
                     plot_and_save_cdf(job_rt, baseline_job_rt, run.scheduler, args.compare_to, os.path.join(OUTPUT_DIR, f"{run.scheduler}_{run.config}"),f"{job_type}_response_time_cdf")
 
                 
-    elif args.change_type == "custom":
+    elif args.change_type == "custom1":
         for config in CONFIGS:
-            for job_type in JOB_TYPES:
+            # for job_type in JOB_TYPES:
                 fig, ax = plt.subplots()
+                empty = True
                 for bench in benches:
                     if config not in bench.config:
                         continue
                     if "PARTITIONER" not in bench.scheduler:
+                        print(f"skipping: {bench.scheduler}")
                         continue
-                    if bench.scheduler not in args.compare_to:
-                        continue
-                    empty = True
+                    # if bench.scheduler not in args.compare_to:
+                    #     continue
                     for run in bench.runs:
 
 
-                        # all_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups]
+                        all_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups]
 
-                        job_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups if jobgroup.job_type == job_type]
+                        # job_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups if "user4" in user.name ]
 
                         # if no such job for this benchmark, continue
-                        if len(job_rt) == 0:
+                        if len(all_rt) == 0:
                             continue
 
                         # no need to cmpare baseline to itself
@@ -567,8 +615,9 @@ def cdf(args):
 
                         # plot data
 
-                        ax.ecdf(job_rt, label=f"{FORMAL_NAME[run.scheduler]}", linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
+                        ax.ecdf(all_rt, label=f"{FORMAL_NAME[run.scheduler]}", linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
                         empty = False
+                        break
 
 
                 if empty:
@@ -588,10 +637,125 @@ def cdf(args):
 
                 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-                filename = os.path.join(OUTPUT_DIR, f"{config}_{job_type}ecdf_partition.{FIG_FORMAT}")
+                filename = os.path.join(OUTPUT_DIR, f"{config}_user_4_ecdf_partition.{FIG_FORMAT}")
                 print(f"saving {filename}")
                 fig.savefig(filename)
                 plt.close(fig)
+
+
+    elif args.change_type == "custom2":
+        for config in CONFIGS:
+            # for job_type in JOB_TYPES:
+                fig_short, ax_short = plt.subplots()
+                fig_med, ax_med = plt.subplots()
+                fig_long, ax_long = plt.subplots()
+                empty = True
+                for bench in benches:
+                    if config not in bench.config:
+                        continue
+                    if "PARTITIONER" in bench.scheduler:
+                        print(f"skipping: {bench.scheduler}")
+                        continue
+                    # if bench.scheduler not in args.compare_to:
+                    #     continue
+                    for run in bench.runs:
+
+
+
+                        all_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups ]
+
+                        # if no such job for this benchmark, continue
+                        if len(all_rt) == 0:
+                            continue
+
+                        # no need to cmpare baseline to itself
+                        print(f"using schedule: {run.scheduler}")
+                        # get data for baseline
+
+                        sorted_rt = np.sort(all_rt)
+
+                        n = len(sorted_rt)
+                        percent80 = int(np.floor(0.8 * n ))
+                        percent95 = int(np.floor(0.95 * n ))
+
+                        top_80 = sorted_rt[:percent80]
+                        next_15 = sorted_rt[percent80:percent95]
+                        last_5 = sorted_rt[percent95:]
+                        
+
+                        ax_short.ecdf(top_80, label=f"{FORMAL_NAME[run.scheduler]}", linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
+                        ax_med.ecdf(next_15, label=f"{FORMAL_NAME[run.scheduler]}", linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
+                        ax_long.ecdf(last_5, label=f"{FORMAL_NAME[run.scheduler]}", linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
+
+                        empty = False
+                        break
+
+
+                if empty:
+                    continue
+
+                ax_short.grid(True)
+                ax_short.legend()
+                # ax_short.set_title(f"Response time ECDF :{run.config}")
+                ax_short.set_xlabel("Response time (s)")
+                ax_short.set_ylabel("Fraction of jobs")
+                ax_short.set_ylim(ymin=0)
+                ax_short.set_xlim(xmin=0)
+
+                if args.show_plot:
+                    plt.show()
+
+
+                os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+                filename = os.path.join(OUTPUT_DIR, f"{config}_short_ecdf_partition.{FIG_FORMAT}")
+                print(f"saving {filename}")
+                fig_short.savefig(filename)
+                plt.close(fig_short)
+
+
+
+                ax_med.grid(True)
+                ax_med.legend()
+                # ax_med.set_title(f"Response time ECDF :{run.config}")
+                ax_med.set_xlabel("Response time (s)")
+                ax_med.set_ylabel("Fraction of jobs")
+                ax_med.set_ylim(ymin=0)
+                ax_med.set_xlim(xmin=0)
+
+                if args.show_plot:
+                    plt.show()
+
+
+                os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+                filename = os.path.join(OUTPUT_DIR, f"{config}_med_ecdf_partition.{FIG_FORMAT}")
+                print(f"saving {filename}")
+                fig_med.savefig(filename)
+                plt.close(fig_med)
+
+
+
+
+                ax_long.grid(True)
+                ax_long.legend()
+                # ax_long.set_title(f"Response time ECDF :{run.config}")
+                ax_long.set_xlabel("Response time (s)")
+                ax_long.set_ylabel("Fraction of jobs")
+                ax_long.set_ylim(ymin=0)
+                ax_long.set_xlim(xmin=0)
+
+                if args.show_plot:
+                    plt.show()
+
+
+                os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+                filename = os.path.join(OUTPUT_DIR, f"{config}_long_ecdf_partition.{FIG_FORMAT}")
+                print(f"saving {filename}")
+                fig_long.savefig(filename)
+                plt.close(fig_long)
+
 
 
 
@@ -606,8 +770,13 @@ def timeline(args):
     
     for bench in benches:
         for iteration, run in enumerate(bench.runs):
-            print(f"Making timeline for {run.app_name}")
+            print(f"Making timeline for {run.app_name}, iteration {iteration}")
             fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(10, 8), sharex=True)
+
+            if not TASK_TRACKING_ENABLED:
+                fig, ax = plt.subplots(figsize=(10, 4))
+
+                axes = [None, ax]
 
             # track execution time
             if len([jobgroup.start for user in run.users for jobgroup in user.jobgroups]) == 0:
@@ -624,19 +793,21 @@ def timeline(args):
             
             # for controlling allignment
             y_postion = 0
-            executor_bins_map = {}
-            for i in range(EXECUTOR_AMOUNT):
-                executor_bins_map[i] = Bin(0,0)
+            if TASK_TRACKING_ENABLED:
+                executor_bins_map = {}
+                for i in range(EXECUTOR_AMOUNT):
+                    executor_bins_map[i] = Bin(0,0)
             for user in run.users:
                 base_color = user_colors[user.name]
                 jobgroup_bins = Bin(start_time, end_time)
                 for jobgroup in user.jobgroups:
-                    # create bins for executors
-                    for execution in jobgroup.executor_load:
-                        bin_elem = Bin(execution.start, execution.end, id=execution.stage_id)
-                        bin_elem.ex_type = execution.ex_type
-                        bin_elem.color = base_color
-                        executor_bins_map[execution.executor_id].add(bin_elem)
+                    if TASK_TRACKING_ENABLED:
+                        # create bins for executors
+                        for execution in jobgroup.executor_load:
+                            bin_elem = Bin(execution.start, execution.end, id=execution.stage_id)
+                            bin_elem.ex_type = execution.ex_type
+                            bin_elem.color = base_color
+                            executor_bins_map[execution.executor_id].add(bin_elem)
 
 
                     # create bins for stages
@@ -696,33 +867,34 @@ def timeline(args):
 
 
 
-            # draw executors
-            for executor_id in executor_bins_map:
-                executor = executor_bins_map[executor_id]
-                executor.pack_subbins()
-                for execution in executor.subbins:
-                    exec_width = execution.end - execution.start
-                    exec_offset = CORES_PER_EXEC * executor_id + execution.pos - 0.5
-                    exec_start_offset = execution.start - start_time
-                    if args.change_type== "group":
-                        axes[0].add_patch(patches.Rectangle(
-                            (exec_start_offset, exec_offset), exec_width, 1.0, color=execution.color, alpha=0.5
-                        ))
-                    elif args.change_type == "type":
-                        axes[0].add_patch(patches.Rectangle(
-                            (exec_start_offset, exec_offset), exec_width, 0.6, color="green" if execution.ex_type == "EXEC" else "yellow", alpha=0.5
-                        ))
+            if TASK_TRACKING_ENABLED:
+                # draw executors
+                for executor_id in executor_bins_map:
+                    executor = executor_bins_map[executor_id]
+                    executor.pack_subbins()
+                    for execution in executor.subbins:
+                        exec_width = execution.end - execution.start
+                        exec_offset = CORES_PER_EXEC * executor_id + execution.pos - 0.5
+                        exec_start_offset = execution.start - start_time
+                        if args.change_type== "group":
+                            axes[0].add_patch(patches.Rectangle(
+                                (exec_start_offset, exec_offset), exec_width, 1.0, color=execution.color, alpha=0.5
+                            ))
+                        elif args.change_type == "type":
+                            axes[0].add_patch(patches.Rectangle(
+                                (exec_start_offset, exec_offset), exec_width, 0.6, color="green" if execution.ex_type == "EXEC" else "yellow", alpha=0.5
+                            ))
 
-                    if args.show_task_stage_id:
-                        axes[0].annotate(execution.id, (exec_start_offset, exec_offset), textcoords="offset points", xytext=(1,1), ha='left', fontsize=8, color="black")
-                # Draw a line between executors
-                axes[0].axhline(y=CORES_PER_EXEC * (1 +executor_id) - 0.5, color='r', linestyle='--', linewidth=1)
+                        if args.show_task_stage_id:
+                            axes[0].annotate(execution.id, (exec_start_offset, exec_offset), textcoords="offset points", xytext=(1,1), ha='left', fontsize=8, color="black")
+                    # Draw a line between executors
+                    axes[0].axhline(y=CORES_PER_EXEC * (1 +executor_id) - 0.5, color='r', linestyle='--', linewidth=1)
 
 
-            # setup executor plot
-            # axes[0].set_title(f"{run.scheduler} {iteration}: {run.config}, utilization={run.get_cpu_time() / (total_time * CORES_PER_EXEC * EXECUTOR_AMOUNT)} runtime={total_time}")
-            axes[0].set_ylabel("Core")
-            axes[0].set_ylim(CORES_PER_EXEC * EXECUTOR_AMOUNT + 1, -1)
+                # setup executor plot
+                # axes[0].set_title(f"{run.scheduler} {iteration}: {run.config}, utilization={run.get_cpu_time() / (total_time * CORES_PER_EXEC * EXECUTOR_AMOUNT)} runtime={total_time}")
+                axes[0].set_ylabel("Core")
+                axes[0].set_ylim(CORES_PER_EXEC * EXECUTOR_AMOUNT + 1, -1)
 
 
             # setup jobgroup plot
