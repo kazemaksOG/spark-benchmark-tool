@@ -41,12 +41,12 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             return this.globalVirtualTime;
         }
 
-        public User addOrGetUser(String userName) {
+        public User addOrGetUser(String userName, long jobId) {
             // first check if user previously existed
             if (this.historicUsers.containsKey(userName)) {
                 // revive the user and remove from history
                 User oldUser = this.historicUsers.remove(userName);
-                oldUser.revive(this.globalVirtualTime, this.gracePeriod);
+                oldUser.revive(this.globalVirtualTime, this.gracePeriod, jobId);
 
                 // add user to active users and ordered list
                 if (this.activeUsers.put(userName, oldUser) != null) {
@@ -105,6 +105,10 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
                     break;
                 }
 
+                // Progress virtual time until the time minUser leaves the system
+                // This is done before removing the user, because in case of revival, their virtual time must be consistent
+                this.progressVirtualTime(userFinishTime.get(), userShare);
+
                 // remove the user from active users
                 this.historicUsers.put(minUser.name, minUser);
                 if(this.activeUsers.remove(minUser.name) == null) {
@@ -113,8 +117,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
                 userIterator.remove();
                 System.out.println("INFO: removing user " + minUser.name + " from hashmap");
 
-                // Progress virtual time until the time minUser leaves the system
-                this.progressVirtualTime(userFinishTime.get(), userShare);
+
             }
 
             // Phase 2: advance virtual time until current time
@@ -125,7 +128,11 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         public void updateUserOrder(User addingUser) {
             // to resort the treeset, we have to remove and add the job back
             if(!this.orderedUsers.remove(addingUser)) {
-                System.out.println("######### ERROR: updating user but current user does not exist in orderedUsers with name: " + addingUser.name);
+                System.out.println("######### ERROR: updating user but current user does not exist in orderedUsers with name: " + addingUser.name + " with deadline: " + addingUser.activeJobs.last().getGlobalVirtualDeadline());
+                System.out.println("######### current users:");
+                for (User user : this.orderedUsers) {
+                    System.out.println(user.name + " " + user.activeJobs.last().getGlobalVirtualDeadline());
+                }
             }
             this.orderedUsers.add(addingUser);
         }
@@ -213,8 +220,9 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         long userVirtualTime;
         long globalVirtualStartTime;
         long globalVirtualEndTime;
-        HashMap<Long, Job> jobIdToJob = new HashMap<>();
+        HashMap<Long, Job> jobIdToJob;
         TreeSet<Job> activeJobs;
+        HashMap<Long, Job> finishedJobs;
 
         User(String name, long globalVirtualTime) {
             this.name = name;
@@ -224,6 +232,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
             this.jobIdToJob = new HashMap<>();
             this.activeJobs = new TreeSet<>();
+            this.finishedJobs = new HashMap<>();
         }
 
         /**
@@ -252,6 +261,9 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
         public void updateVirtualTime(double userShare, long previousCurrentTime, long currentTime ) {
             int jobAmount = this.activeJobs.size();
+            if(jobAmount == 0) {
+                System.out.println("######## ERROR: updateVirtualTime called on empty job list for user: " + this.name);
+            }
             double jobShare = userShare / (double) jobAmount;
             Iterator<Job> jobIterator = activeJobs.iterator();
             while (jobIterator.hasNext()) {
@@ -263,12 +275,18 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
                     // advance virtual time based on amount of current shares
                     // if negative, it means that some stages are lagging behind, but we do not need to add them
                     // since virtual time already accounted for this job finishing
-                    if(virtualTimeSpent > 0) {
+                    if(virtualTimeSpent >= 0 && !this.finishedJobs.containsKey(job.jobId)) {
                         this.userVirtualTime += virtualTimeSpent;
                         previousCurrentTime = jobRealFinishTime;
                         // advance user job virtual start time
                         this.globalVirtualStartTime += job.jobRuntime;
-                        System.out.println("##### INFO: advancing globalStartTime for user: " + name + "globalStartTime:" + this.globalVirtualStartTime );
+                        this.finishedJobs.put(job.jobId, job);
+                        System.out.println("##### INFO: advancing globalStartTime for user: " + name
+                                + " globalStartTime: " + this.globalVirtualStartTime
+                                + " jobid: " + job.jobId 
+                                + " jobRealFinishTime: " + jobRealFinishTime
+                                + " virtualTimeSpent: " + virtualTimeSpent
+                                + " userVirtualTime: " + userVirtualTime);
                     } else {
                         System.out.println("##### INFO: late stage for user: " + name + "jobId:" + job.jobId + "job user deadline:" + job.userVirtualDeadline );
                     }
@@ -352,13 +370,13 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             this.activeJobs.add(currentJob);
         }
 
-        public void revive(long globalVirtualTime, double gracePeriod) {
-            // if user has passed the grace period, reset their global virtual start time
-            if(globalVirtualTime - this.globalVirtualEndTime > gracePeriod) {
-                System.out.println("Reviving user with new virtual time, global" + globalVirtualTime + " grace period: " + gracePeriod +" global end time: " + this.globalVirtualEndTime + " global start time" + this.globalVirtualStartTime);
-                this.globalVirtualStartTime = globalVirtualTime;
+        public void revive(long globalVirtualTime, double gracePeriod, long jobId) {
+            // if user is within grace period, and the stage submitted is a continuation of an existing job, keep the old virtual time
+            if(this.jobIdToJob.containsKey(jobId) && globalVirtualTime - this.globalVirtualEndTime <= gracePeriod) {
+                System.out.println("Reviving user with old virtual time, global virtual time " + globalVirtualTime + " grace period: " + gracePeriod +" global end time: " + this.globalVirtualEndTime + " global start time" + this.globalVirtualStartTime);
             } else {
-                System.out.println("Reviving user with old virtual time, global" + globalVirtualTime + " grace period: " + gracePeriod +" global end time: " + this.globalVirtualEndTime + " global start time" + this.globalVirtualStartTime);
+                System.out.println("Reviving user with new virtual time, global virtual time and start time " + globalVirtualTime + " grace period: " + gracePeriod +" global end time: " + this.globalVirtualEndTime + " previous global start time" + this.globalVirtualStartTime);
+                this.globalVirtualStartTime = globalVirtualTime;
             }
         }
 
@@ -430,12 +448,14 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         }
         System.out.println("######## Adding stage User: " + userName + " description: " + properties.getProperty("spark.job.description"));
 
-        // get or create the user
-        User addingUser = this.userContainer.addOrGetUser(userName);
 
         // get job runtime and the job id the stage belongs to, so virtual deadline can be correctly set
         int stageId = stage.stageId();
         JobRuntime jobRuntime = performanceEstimator.getJobRuntime(stageId);
+
+        // get or create the user
+        User addingUser = this.userContainer.addOrGetUser(userName, jobRuntime.id());
+
 
         // add the stage to the user
         addingUser.addStage(this.userContainer.getGlobalVirtualTime(), jobRuntime , stage);
