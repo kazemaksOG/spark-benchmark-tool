@@ -10,9 +10,9 @@ TASK_TRACKING_ENABLED = False
 
 # Macro benchmark settings
 
-MACRO_CONFIG="./macro_benchmarks_hetero.csv"
-SCALING = 2 # Hetero 2, homo 20
-FILTER_LARGE = False# Hetero false, homo True
+MACRO_CONFIG="./macro_benchmarks_homo.csv"
+SCALING = 20 # Hetero 2, homo 20
+FILTER_LARGE = True# Hetero false, homo True
 
 TIME_FRAME_S = 500
 TIME_SCALE = 1
@@ -21,7 +21,7 @@ PARALLELIZATION_SCALING = 24
 
 # paths to benchmarks
 
-RUN_PATH="./data/macro_benchmark_hetero/target"
+RUN_PATH="./data/debug_micro_benchmark_3/target"
 BENCH_PATH=f"{RUN_PATH}/bench_outputs"
 OUTPUT_DIR="./metrics"
 
@@ -29,7 +29,41 @@ OUTPUT_DIR="./metrics"
 APPS_URL="http://localhost:18080/api/v1/applications"
 
 
+SCHEDULER_ORDER = [
+
+    "DEFAULT_FAIR",
+    "DEFAULT_FAIR_PARTITIONER",
+
+    "CUSTOM_FAIR",
+    "CUSTOM_FAIR_PARTITIONER",
+
+    "CUSTOM_RANDOM",
+    "CUSTOM_RANDOM_PARTITIONER",
+
+    "TRUE_FIFO",
+    "TRUE_FIFO_PARTITIONER",
+
+
+    "CUSTOM_CLUSTERFAIR",
+    "CUSTOM_CLUSTERFAIR_PARTITIONER",
+
+    "CUSTOM_USERCLUSTERFAIR",
+    "CUSTOM_USERCLUSTERFAIR_PARTITIONER", # has to be before regular because of string comparison
+
+    # "CUSTOM_SHORT",
+    # "AQE_CUSTOM_FAIR",
+    # "AQE_CUSTOM_RANDOM",
+    # "AQE_CUSTOM_SHORT",
+    # "AQE_DEFAULT_FIFO",
+    # "AQE_DEFAULT_FAIR",
+]
+
+
 SCHEDULERS = [
+
+    "DEFAULT_FAIR_PARTITIONER",
+    "DEFAULT_FAIR",
+
     "CUSTOM_FAIR_PARTITIONER",
     "CUSTOM_FAIR",
 
@@ -39,8 +73,6 @@ SCHEDULERS = [
     "TRUE_FIFO_PARTITIONER",
     "TRUE_FIFO",
 
-    "DEFAULT_FAIR_PARTITIONER",
-    "DEFAULT_FAIR",
 
     "CUSTOM_CLUSTERFAIR_PARTITIONER",
     "CUSTOM_CLUSTERFAIR",
@@ -129,6 +161,7 @@ CONFIGS = [
     "2_power_2_small_users",
     "4_super_small_users",
     "macro_config",
+    "homo_macro",
 ]
 
 

@@ -27,6 +27,7 @@ class Benchmark:
 
         app_ids = [entry["id"] for entry in data if entry["name"].startswith(self.app_name)]
         print(f"Found app ids for {self.app_name}:")
+        app_ids.sort()
         print(app_ids)
         for i, app_id in enumerate(app_ids):
             print(f"Parsing {app_id}")
@@ -94,6 +95,7 @@ class Run:
         id_correction = {}
         for stage_json in stages_json:
             id_correction[stage_json["stageId"]] = stage_json
+        stages_json = id_correction
 
 
         job_response = requests.get(f"{APPS_URL}/{app_id}/jobs")

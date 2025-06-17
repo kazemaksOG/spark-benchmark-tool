@@ -376,7 +376,7 @@ def boxplot_deadline(args):
     for config in CONFIGS:
         fig_default, ax_default = plt.subplots()
         labels_default = []
-        labels_partition = []
+        #labels_partition = []
         fig_partition, ax_partition = plt.subplots()
         labels = []
         empty = True
@@ -386,14 +386,18 @@ def boxplot_deadline(args):
 
             baseline_benches = None 
             ax = None
+
+            labels = labels_default
+            ax = ax_default
             if "PARTITIONER" in bench.scheduler:
                 baseline_benches = get_benchmarks(args.compare_to + "_PARTITIONER", bench.config)
-                labels = labels_partition
-                ax = ax_partition
+                continue
+                # labels = labels_partition
+                # ax = ax_partition
             else:
                 baseline_benches = get_benchmarks(args.compare_to, bench.config)
-                labels = labels_default
-                ax = ax_default
+                # labels = labels_default
+                # ax = ax_default
 
             deadline_violation = []
             deadline_slack = []
@@ -402,9 +406,6 @@ def boxplot_deadline(args):
                 if run.scheduler == args.compare_to or run.scheduler == args.compare_to + "_PARTITIONER":
                     continue
 
-
-
-                labels.append(FORMAL_NAME[run.scheduler])
                 # get start times
                 start_time = min(jobgroup.start for user in run.users for jobgroup in user.jobgroups)
 
@@ -435,6 +436,11 @@ def boxplot_deadline(args):
                                 deadline_violation.append(deadline_ratio)
                             else:
                                 deadline_slack.append(deadline_ratio)
+
+                if FORMAL_NAME[run.scheduler] == "UWFQ" or FORMAL_NAME[run.scheduler] == "UWFQ-P" :
+                    labels.append(r'$\mathbf{{{}}}$'.format(FORMAL_NAME[run.scheduler]))
+                else:
+                    labels.append(FORMAL_NAME[run.scheduler])
                 print(f"done {run.scheduler}, {run.config}, with amount of deadlines: {len(deadline_violation + deadline_slack)}")
                 empty = False
                 break
@@ -447,6 +453,8 @@ def boxplot_deadline(args):
         if empty:
             continue
 
+        ax_default.set_xlabel("Scheduler")
+        ax_default.set_ylabel("Job proportional slack/violation")
         ax_default.set_xticks(range(len(labels_default)))
         ax_default.set_xticklabels(labels_default, rotation=45, ha='right')
         ax_default.axhline(y=0, color='red', linestyle='--', linewidth=1)
@@ -466,21 +474,21 @@ def boxplot_deadline(args):
 
 
 
-        ax_partition.set_xticks(range(len(labels_partition)))
-        ax_partition.set_xticklabels(labels_partition, rotation=45, ha='right')
-        ax_partition.axhline(y=0, color='red', linestyle='--', linewidth=1)
-        plt.tight_layout()
-
-        if args.show_plot:
-            plt.show()
-
-        # make a dir if necessary
-        os.makedirs(OUTPUT_DIR, exist_ok=True)
-
-        filename = os.path.join(OUTPUT_DIR, f"{config}_deadline_boxplots_partition.{FIG_FORMAT}") 
-        print(f"saving {filename}")
-        fig_partition.savefig(filename, bbox_inches='tight')
-        plt.close(fig_partition)
+        # ax_partition.set_xticks(range(len(labels_partition)))
+        # ax_partition.set_xticklabels(labels_partition, rotation=45, ha='right')
+        # ax_partition.axhline(y=0, color='red', linestyle='--', linewidth=1)
+        # plt.tight_layout()
+        #
+        # if args.show_plot:
+        #     plt.show()
+        #
+        # # make a dir if necessary
+        # os.makedirs(OUTPUT_DIR, exist_ok=True)
+        #
+        # filename = os.path.join(OUTPUT_DIR, f"{config}_deadline_boxplots_partition.{FIG_FORMAT}") 
+        # print(f"saving {filename}")
+        # fig_partition.savefig(filename, bbox_inches='tight')
+        # plt.close(fig_partition)
 
 
 def plot_and_save_cdf(target, baseline, target_name, base_name, folder, output):
@@ -588,14 +596,21 @@ def cdf(args):
     elif args.change_type == "custom1":
         for config in CONFIGS:
             # for job_type in JOB_TYPES:
-                fig, ax = plt.subplots()
+                fig_default, ax_default = plt.subplots()
+                fig_partition, ax_partition = plt.subplots()
                 empty = True
                 for bench in benches:
                     if config not in bench.config:
                         continue
-                    if "PARTITIONER" not in bench.scheduler:
-                        print(f"skipping: {bench.scheduler}")
-                        continue
+
+                    fig = None 
+                    ax = None
+                    if "PARTITIONER" in bench.scheduler:
+                        fig = fig_partition
+                        ax = ax_partition
+                    else:
+                        fig = fig_default
+                        ax = ax_default
                     # if bench.scheduler not in args.compare_to:
                     #     continue
                     for run in bench.runs:
@@ -615,7 +630,13 @@ def cdf(args):
 
                         # plot data
 
-                        ax.ecdf(all_rt, label=f"{FORMAL_NAME[run.scheduler]}", linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
+                        label = None
+                        if FORMAL_NAME[run.scheduler] == "UWFQ" or FORMAL_NAME[run.scheduler] == "UWFQ-P" :
+                            label = (r'$\mathbf{{{}}}$'.format(FORMAL_NAME[run.scheduler]))
+                        else:
+                            label = (FORMAL_NAME[run.scheduler])
+
+                        ax.ecdf(all_rt, label=label, linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
                         empty = False
                         break
 
@@ -623,13 +644,13 @@ def cdf(args):
                 if empty:
                     continue
 
-                ax.grid(True)
-                ax.legend()
-                # ax.set_title(f"Response time ECDF :{run.config}")
-                ax.set_xlabel("Response time (s)")
-                ax.set_ylabel("Fraction of jobs")
-                ax.set_ylim(ymin=0)
-                ax.set_xlim(xmin=0)
+                ax_default.grid(True)
+                ax_default.legend()
+                # ax_default.set_title(f"Response time ECDF :{run.config}")
+                ax_default.set_xlabel("Response time (s)")
+                ax_default.set_ylabel("Fraction of jobs")
+                ax_default.set_ylim(ymin=0)
+                ax_default.set_xlim(xmin=0)
 
                 if args.show_plot:
                     plt.show()
@@ -637,15 +658,38 @@ def cdf(args):
 
                 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-                filename = os.path.join(OUTPUT_DIR, f"{config}_user_4_ecdf_partition.{FIG_FORMAT}")
+                filename = os.path.join(OUTPUT_DIR, f"{config}_all_ecdf.{FIG_FORMAT}")
                 print(f"saving {filename}")
-                fig.savefig(filename)
-                plt.close(fig)
+                fig_default.savefig(filename)
+                plt.close(fig_default)
+
+
+
+                ax_partition.grid(True)
+                ax_partition.legend()
+                # ax_partition.set_title(f"Response time ECDF :{run.config}")
+                ax_partition.set_xlabel("Response time (s)")
+                ax_partition.set_ylabel("Fraction of jobs")
+                ax_partition.set_ylim(ymin=0)
+                ax_partition.set_xlim(xmin=0)
+
+                if args.show_plot:
+                    plt.show()
+
+
+                os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+                filename = os.path.join(OUTPUT_DIR, f"{config}_all_ecdf_partition.{FIG_FORMAT}")
+                print(f"saving {filename}")
+                fig_partition.savefig(filename)
+                plt.close(fig_partition)
 
 
     elif args.change_type == "custom2":
         for config in CONFIGS:
             # for job_type in JOB_TYPES:
+
+                fig_mini, ax_mini = plt.subplots()
                 fig_short, ax_short = plt.subplots()
                 fig_med, ax_med = plt.subplots()
                 fig_long, ax_long = plt.subplots()
@@ -656,8 +700,9 @@ def cdf(args):
                     if "PARTITIONER" in bench.scheduler:
                         print(f"skipping: {bench.scheduler}")
                         continue
-                    # if bench.scheduler not in args.compare_to:
-                    #     continue
+                    if FORMAL_NAME[bench.scheduler] not in args.compare_to:
+                        print(f"skipping: {bench.scheduler}")
+                        continue
                     for run in bench.runs:
 
 
@@ -675,17 +720,26 @@ def cdf(args):
                         sorted_rt = np.sort(all_rt)
 
                         n = len(sorted_rt)
+                        percent20 = int(np.floor(0.2 * n))
                         percent80 = int(np.floor(0.8 * n ))
                         percent95 = int(np.floor(0.95 * n ))
 
+                        top_20 = sorted_rt[:percent20]
                         top_80 = sorted_rt[:percent80]
                         next_15 = sorted_rt[percent80:percent95]
                         last_5 = sorted_rt[percent95:]
                         
 
-                        ax_short.ecdf(top_80, label=f"{FORMAL_NAME[run.scheduler]}", linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
-                        ax_med.ecdf(next_15, label=f"{FORMAL_NAME[run.scheduler]}", linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
-                        ax_long.ecdf(last_5, label=f"{FORMAL_NAME[run.scheduler]}", linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
+                        label = None
+                        if FORMAL_NAME[run.scheduler] == "UWFQ" or FORMAL_NAME[run.scheduler] == "UWFQ-P" :
+                            label = (r'$\mathbf{{{}}}$'.format(FORMAL_NAME[run.scheduler]))
+                        else:
+                            label = (FORMAL_NAME[run.scheduler])
+
+                        ax_mini.ecdf(top_20, label=label, linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
+                        ax_short.ecdf(top_80, label=label, linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
+                        ax_med.ecdf(next_15, label=label, linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
+                        ax_long.ecdf(last_5, label=label, linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
 
                         empty = False
                         break
@@ -693,6 +747,28 @@ def cdf(args):
 
                 if empty:
                     continue
+
+
+
+                ax_mini.grid(True)
+                ax_mini.legend()
+                # ax_mini.set_title(f"Response time ECDF :{run.config}")
+                ax_mini.set_xlabel("Response time (s)")
+                ax_mini.set_ylabel("Fraction of jobs")
+                ax_mini.set_ylim(ymin=0)
+                ax_mini.set_xlim(xmin=0)
+
+                if args.show_plot:
+                    plt.show()
+
+
+                os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+                filename = os.path.join(OUTPUT_DIR, f"{config}_mini_ecdf_partition.{FIG_FORMAT}")
+                print(f"saving {filename}")
+                fig_mini.savefig(filename)
+                plt.close(fig_mini)
+
 
                 ax_short.grid(True)
                 ax_short.legend()
@@ -774,6 +850,7 @@ def timeline(args):
             fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(10, 8), sharex=True)
 
             if not TASK_TRACKING_ENABLED:
+                plt.close(fig)
                 fig, ax = plt.subplots(figsize=(10, 4))
 
                 axes = [None, ax]
@@ -967,7 +1044,8 @@ def get_benchmarks(isolate_scheduler="", isolate_config=""):
         print("Loading data: " + data_dump_path)
         with open(data_dump_path, "rb") as file:
             benches = pickle.load(file)
-            filtered = [bench for bench in benches if isolate_config in bench.config and (isolate_scheduler == "" or isolate_scheduler == bench.scheduler)]
+            filtered = [bench for bench in benches if isolate_config in bench.config and (isolate_scheduler == "" or isolate_scheduler == FORMAL_NAME[bench.scheduler])]
+            filtered.sort(key=lambda bench: SCHEDULER_ORDER.index(bench.scheduler))
             return filtered
 
 
@@ -1001,6 +1079,7 @@ def get_benchmarks(isolate_scheduler="", isolate_config=""):
         pickle.dump(benches, file)
 
                     
+    benches.sort(key=lambda bench: SCHEDULER_ORDER.index(bench.scheduler))
     return benches
 
 
