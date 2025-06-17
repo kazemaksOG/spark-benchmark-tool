@@ -6,12 +6,39 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 public class  UserClusterFairScheduler implements SchedulableBuilder {
+
+
+    public class CustomTreeSet<T> extends TreeSet<T> {
+        public CustomTreeSet() {
+            super();
+        }
+
+        public CustomTreeSet(java.util.Comparator<? super T> comparator) {
+            super(comparator);
+        }
+        // 'update' method; returns false if removal fails or duplicate after update
+
+        public boolean linearRemove(Object o) {
+            Iterator<T> it = this.iterator();
+            while (it.hasNext()) {
+                T current = it.next();
+                if (current.equals(o)) {
+                    it.remove();
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
+
+
     private static final double BASE_GRACE_PERIOD_MS = 5000;
 
     class UserContainer {
         ConcurrentHashMap<String, User> activeUsers = new ConcurrentHashMap<>();
         ConcurrentHashMap<String, User> historicUsers = new ConcurrentHashMap<>();
-        TreeSet<User> orderedUsers = new TreeSet<>();
+        CustomTreeSet<User> orderedUsers = new CustomTreeSet<>();
         int totalCores;
         long globalVirtualTime;
         long previousCurrentTime;
@@ -127,7 +154,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
         public void updateUserOrder(User addingUser) {
             // to resort the treeset, we have to remove and add the job back
-            if(!this.orderedUsers.remove(addingUser)) {
+            if(!this.orderedUsers.linearRemove(addingUser)) {
                 System.out.println("######### ERROR: updating user but current user does not exist in orderedUsers with name: " + addingUser.name);
                 System.out.println("######### current users:");
                 for (User user : this.orderedUsers) {
@@ -395,6 +422,18 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         }
 
         @Override
+        public boolean equals(Object obj) {
+            if (this == obj) return true;
+            if (!(obj instanceof User other)) return false;
+            return this.name.equals(other.name);
+        }
+
+        @Override
+        public int hashCode() {
+            return name.hashCode();
+        }
+
+        @Override
         public int compareTo(@NotNull UserClusterFairScheduler.User otherUser) {
             if(this.name.equals(otherUser.name)) {
                 return 0;
@@ -414,8 +453,6 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             }
             return priority;
         }
-
-
     }
 
     Pool rootPool;
