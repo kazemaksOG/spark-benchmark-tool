@@ -9,9 +9,6 @@
     "spark.executor.memory": "4g",
 
     "spark.eventLog.enabled":  true,
-    "spark.ui.retainedJobs": "100000",
-    "spark.ui.retainedStages": "100000",
-    "spark.ui.retainedTasks": "10000000",
 
     "spark.sql.adaptive.enabled": true,
     "spark.sql.adaptive.coalescePartitions.enabled": true,

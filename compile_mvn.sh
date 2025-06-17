@@ -16,7 +16,7 @@ $MVN -f ./schedulers/RandomScheduler package
 $MVN -f ./schedulers/UserFairScheduler package 
 $MVN -f ./schedulers/ShortestFirstScheduler package
 $MVN -f ./schedulers/ClusterFairScheduler package
-$MVN -f ./schedulers/TrueFifoScheduler package
+$MVN -f ./schedulers/TrueFifo package
 $MVN -f ./schedulers/UserClusterFairScheduler package
 
 # compile estimators
