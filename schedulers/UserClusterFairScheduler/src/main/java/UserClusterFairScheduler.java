@@ -270,6 +270,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             int jobAmount = this.activeJobs.size();
             if(jobAmount == 0) {
                 System.out.println("######## ERROR: updateVirtualTime called on empty job list for user: " + this.name);
+                return;
             }
             double jobShare = userShare / (double) jobAmount;
             Iterator<Job> jobIterator = activeJobs.iterator();
