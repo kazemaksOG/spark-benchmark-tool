@@ -128,10 +128,11 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         public void updateUserOrder(User addingUser) {
             // to resort the treeset, we have to remove and add the job back
             if(!this.orderedUsers.remove(addingUser)) {
-                System.out.println("######### ERROR: updating user but current user does not exist in orderedUsers with name: " + addingUser.name + " with deadline: " + addingUser.activeJobs.last().getGlobalVirtualDeadline());
+                System.out.println("######### ERROR: updating user but current user does not exist in orderedUsers with name: " + addingUser.name);
                 System.out.println("######### current users:");
                 for (User user : this.orderedUsers) {
-                    System.out.println(user.name + " " + user.activeJobs.last().getGlobalVirtualDeadline());
+                    String deadline = user.activeJobs.size() > 0 ? Long.toString(user.activeJobs.last().getGlobalVirtualDeadline()) : "empty";
+                    System.out.println(user.name + " " + deadline);
                 }
             }
             this.orderedUsers.add(addingUser);
@@ -384,9 +385,15 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
         public int compareTo(@NotNull UserClusterFairScheduler.User otherUser) {
             // We sort jobs based on their latest job global virtual deadline
             if(otherUser.activeJobs.isEmpty()) {
+                if(this.name.equals(otherUser.name)) {
+                    return 0;
+                }
                 return -1;
             }
             if(this.activeJobs.isEmpty()) {
+                if(this.name.equals(otherUser.name)) {
+                    return 0;
+                }
                 return 1;
             }
             int priority = Long.compare(this.activeJobs.last().getGlobalVirtualDeadline(), otherUser.activeJobs.last().getGlobalVirtualDeadline());
