@@ -173,7 +173,7 @@ public class Workload implements Runnable {
             while(!noMoreJobs()) {
                 // Adjust the job group for each iteration
                 spark.sparkContext().setJobGroup(
-                        userName + "_" + workloadName + "_" + jobId,
+                        "user:" + userName + ";" + "workload:" + workloadName + "_" + jobId + ";",
                         userName + " performing: " + workloadName + "_" + jobId, true);
                 Thread jobThread = new Thread(job);
                 switch(frequency) {

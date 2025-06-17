@@ -6,7 +6,7 @@ import copy
 from datetime import datetime
 
 class Benchmark:
-    def __init__(self, scheduler, config, users_template):
+    def __init__(self, scheduler, config, users_template=[]):
         self.scheduler = scheduler
         self.config = config
         self.app_name = f"bench_{scheduler}_{config}"
@@ -31,13 +31,18 @@ class Benchmark:
         print(app_ids)
         for i, app_id in enumerate(app_ids):
             print(f"Parsing {app_id}")
-            run = Run(self.scheduler, self.config, copy.deepcopy(self.users_template), i)
-            run.get_event_data(app_id)
+
+            if len(self.users_template) != 0:
+                run = Run(self.scheduler, self.config, i, copy.deepcopy(self.users_template))
+                run.get_event_data(app_id)
+            else:
+                run = Run(self.scheduler, self.config, i)
+                run.get_event_data(app_id)
             self.runs.append(run)
 
 
 class Run:
-    def __init__(self, scheduler, config, users, iteration):
+    def __init__(self, scheduler, config, iteration, users=[]):
         self.scheduler = scheduler
         self.config = config
         self.app_name = f"{scheduler}_{config}"
@@ -109,10 +114,34 @@ class Run:
             id_correction[job_json["jobId"]] = job_json
         jobs_json = id_correction
 
-        for user in self.users:
-            user.get_event_data(app_id, stages_json, jobs_json)
+        # check if user metadata provided, otherwise infer it
+        if len(self.users) > 0:
+            for user in self.users:
+                user.get_event_data(app_id, stages_json, jobs_json)
+        else:
+            user_dict = self.get_users(app_id, stages_json, jobs_json)
+            for user_name in user_dict:
+                user = User(user_name, [])
+                jobs_json = user_dict[user_name]
+                user.get_event_data(app_id, stages_json, jobs_json)
 
 
+
+    def get_users(self, app_id, stages_json, jobs_json):
+
+        user_dict = {}
+        for job in jobs_json.values():
+            metadata = job["jobGroup"]
+            user, jobgroup = get_user_and_workload(metadata)
+
+            
+            if user not in user_dict:
+                user_dict[user] = {}
+
+
+            user_dict[user][job["jobId"]].append(job)
+        
+        return user_dict
 
     
 

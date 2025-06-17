@@ -1,5 +1,4 @@
 from numpy import ones_like
-from numpy.__config__ import CONFIG
 from globals import *
 from benchmark_classes import *
 from utility import *
@@ -1072,6 +1071,16 @@ def get_benchmarks(isolate_scheduler="", isolate_config=""):
                     users = get_bench_users(file_path, base_runtimes)
                     benches.append(Benchmark(scheduler, config, users))
                     unique_bench.append(tup)
+
+    # if no benches are found, infer from Spark API
+    if len(benches) == 0:
+        for scheduler in SCHEDULERS:
+            for config in CONFIGS:
+                bench = Benchmark(scheduler, config)
+                if len(bench.runs) != 0:
+                    benches.append(bench)
+
+
 
     # save data for future runs
     with open(data_dump_path, "wb") as file:

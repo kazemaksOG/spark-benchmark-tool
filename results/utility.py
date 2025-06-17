@@ -67,6 +67,12 @@ class Bin:
 
 
 
+def get_user_and_workload(jobgroup):
+    parts = dict(part.split(":") for part in jobgroup.strip(";").split(";"))
+    user = parts.get("user")
+    workload = parts.get("workload")
+
+    return user, workload
 
 
 

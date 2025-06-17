@@ -6,9 +6,10 @@ import org.apache.spark.sql.types.DataTypes;
 
 public class UdfContainer {
 
+    private static final double accountForUnderestimation = 1.3;
     private static int convertRuntime(double runtime) {
 
-        double converted = 3.216105 * Math.pow(runtime, 1.221352);
+        double converted = 3.216105 * Math.pow(runtime, 1.221352) * accountForUnderestimation;
         int iterations = (int)(converted);
 
         return Math.max(1, iterations);

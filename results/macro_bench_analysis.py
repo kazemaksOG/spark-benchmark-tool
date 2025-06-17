@@ -119,6 +119,8 @@ def plot_histogram(user_list):
     ax.grid(True)
     plt.show()
 
+
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     fig.savefig(os.path.join(OUTPUT_DIR, f"macro_benchmark_historgram.{FIG_FORMAT}"))
 
 
@@ -234,7 +236,7 @@ def plot_congestion(user_list):
         ax.yaxis.set_major_locator(ticker.MultipleLocator(2))
 
     # First scatterplot
-    x = np.arange(500)
+    x = np.arange(TIME_FRAME_S)
     axes[0].scatter(x, users_per_second, color='blue', alpha=0.6)
     axes[0].axhline(y=0, color='red', linestyle='--', linewidth=1, label='Reference Line at x=0')
     axes[0].set_ylabel('User amount')
