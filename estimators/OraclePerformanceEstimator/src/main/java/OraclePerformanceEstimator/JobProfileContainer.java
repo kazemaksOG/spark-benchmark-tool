@@ -80,7 +80,7 @@ public class JobProfileContainer {
                 new LinkedList<>(List.of(new SqlJobProfile(
                         JobRuntime.JOB_INVALID_ID(),
                         "jobs.implementations.udf.Loop1000",
-                        111115L))));
+                        131115L))));
         jobClassToJobProfiles.put("jobs.implementations.udf.Loop500",
                 new LinkedList<>(List.of(new SqlJobProfile(
                         JobRuntime.JOB_INVALID_ID(),
