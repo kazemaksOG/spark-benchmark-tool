@@ -2,6 +2,7 @@ from numpy import ones_like
 from globals import *
 from benchmark_classes import *
 from utility import *
+from latex_table_generator import *
 
 import pandas as pd
 import argparse
@@ -16,6 +17,9 @@ random.seed(42)
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 
+plt.rcParams['pdf.fonttype'] = 42
+plt.rcParams['ps.fonttype'] = 42
+
 
 def create_table(args):
 
@@ -23,12 +27,15 @@ def create_table(args):
 
     
     run_rows = {}
+    average_rows = {}
     for bench in benches:
         baseline_benches = None 
         if "PARTITIONER" in bench.scheduler:
-            baseline_benches = get_benchmarks(args.compare_to + "_PARTITIONER", bench.config)
+            baseline_benches = get_benchmarks(args.compare_to + "-P", bench.config)
+            print(f"Getting basline: {args.compare_to + "-P"}")
         else:
             baseline_benches = get_benchmarks(args.compare_to, bench.config)
+            print(f"Getting basline: {args.compare_to}")
         current_scheduler = []
         for iteration, run in enumerate(bench.runs):
             print(f"Getting row elements for {run.app_name}, iteration: {iteration}")
@@ -342,23 +349,42 @@ def create_table(args):
             average_row.append(row)
 
 
-        run_rows[bench.config].append(average_row)
+        if bench.config not in average_rows.keys():
+            average_rows[bench.config] = []
+        average_rows[bench.config].append(average_row)
         print(f"finished: bench.app_name")
 
     for config in CONFIGS:
         if config not in run_rows.keys():
             continue
         run_data = run_rows[config]
+        average_data = average_rows[config]
         columns = [col[0] for col in run_data[0]]
         values = [[val[1] for val in row] for row in run_data]
+        average_values = [[val[1] for val in row] for row in average_data]
         df = pd.DataFrame(values, columns=columns)
-        df = df.sort_values(by=["Config", "Scheduler"])
+        df_avg = pd.DataFrame(average_values, columns=columns)
+
+        # df = df.sort_values(by=["Config", "Scheduler"])
 
         # make a dir if necessary
         os.makedirs(OUTPUT_DIR, exist_ok=True)
 
         df.to_csv(os.path.join(OUTPUT_DIR, f"{config}_run_data.csv"))
+        df_avg.to_csv(os.path.join(OUTPUT_DIR, f"{config}_run_data_avg.csv"))
 
+        if config == "2_large_2_small_users":
+            latex_2_large_2_small_users(df_avg)
+        elif config == "4_large_users":
+            latex_4_large_users(df_avg)
+        elif config == "2_power_2_small_users":
+            latex_2_power_2_small_users(df_avg)
+        elif config == "4_super_small_users":
+            latex_4_super_small_users(df_avg)
+        elif config == "hetero_macro":
+            latex_hetero_macro(df_avg)
+        elif config == "homo_macro":
+            latex_homo_macro(df_avg)
 
 
 
@@ -389,7 +415,7 @@ def boxplot_deadline(args):
             labels = labels_default
             ax = ax_default
             if "PARTITIONER" in bench.scheduler:
-                baseline_benches = get_benchmarks(args.compare_to + "_PARTITIONER", bench.config)
+                baseline_benches = get_benchmarks(args.compare_to + "-P", bench.config)
                 continue
                 # labels = labels_partition
                 # ax = ax_partition
@@ -402,7 +428,7 @@ def boxplot_deadline(args):
             deadline_slack = []
             for iteration, run in enumerate(bench.runs):
 
-                if run.scheduler == args.compare_to or run.scheduler == args.compare_to + "_PARTITIONER":
+                if FORMAL_NAME[run.scheduler] == args.compare_to or FORMAL_NAME[run.scheduler] == args.compare_to + "-P":
                     continue
 
                 # get start times
@@ -446,6 +472,8 @@ def boxplot_deadline(args):
     
             position = len(labels) - 1
             ax.boxplot(deadline_violation + deadline_slack, positions=[position], widths=0.6)            
+            if "-P" in labels[len(labels) - 1]:
+                ax.axvline(x=position + 0.5, color='gray', linestyle='--', linewidth=1)
 
 
 
@@ -466,7 +494,7 @@ def boxplot_deadline(args):
         # make a dir if necessary
         os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-        filename = os.path.join(OUTPUT_DIR, f"{config}_deadline_boxplots_default.{FIG_FORMAT}") 
+        filename = os.path.join(OUTPUT_DIR, f"{config}_deadline_boxplots.{FIG_FORMAT}") 
         print(f"saving {filename}")
         fig_default.savefig(filename, bbox_inches='tight')
         plt.close(fig_default)
@@ -832,6 +860,165 @@ def cdf(args):
                 plt.close(fig_long)
 
 
+    elif args.change_type == "custom3":
+        for config in CONFIGS:
+            for job_type in JOB_TYPES:
+                fig_default, ax_default = plt.subplots()
+                fig_partition, ax_partition = plt.subplots()
+                empty = True
+                for bench in benches:
+                    if config not in bench.config:
+                        continue
+
+                    fig = None 
+                    ax = None
+                    if "PARTITIONER" in bench.scheduler:
+                        fig = fig_partition
+                        ax = ax_partition
+                    else:
+                        fig = fig_default
+                        ax = ax_default
+
+                    if FORMAL_NAME[bench.scheduler] not in args.compare_to:
+                        continue
+                    for run in bench.runs:
+
+
+
+                        job_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups if jobgroup.job_type in job_type]
+
+                        # if no such job for this benchmark, continue
+                        if len(job_rt) == 0:
+                            continue
+
+                        # no need to cmpare baseline to itself
+                        print(f"using schedule: {run.scheduler}")
+                        # get data for baseline
+
+                        # plot data
+
+                        label = None
+                        if FORMAL_NAME[run.scheduler] == "UWFQ" or FORMAL_NAME[run.scheduler] == "UWFQ-P" :
+                            label = (r'$\mathbf{{{}}}$'.format(FORMAL_NAME[run.scheduler]))
+                        else:
+                            label = (FORMAL_NAME[run.scheduler])
+
+                        ax.ecdf(job_rt, label=label, linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
+                        empty = False
+                        break
+
+
+                if empty:
+                    continue
+
+                ax_default.grid(True)
+                ax_default.legend()
+                # ax_default.set_title(f"Response time ECDF :{run.config}")
+                ax_default.set_xlabel("Response time (s)")
+                ax_default.set_ylabel("Fraction of jobs")
+                ax_default.set_ylim(ymin=0)
+                ax_default.set_xlim(xmin=0)
+
+                if args.show_plot:
+                    plt.show()
+
+
+                os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+                filename = os.path.join(OUTPUT_DIR, f"{config}_{job_type}ecdf.{FIG_FORMAT}")
+                print(f"saving {filename}")
+                fig_default.savefig(filename)
+                plt.close(fig_default)
+
+
+
+                ax_partition.grid(True)
+                ax_partition.legend()
+                # ax_partition.set_title(f"Response time ECDF :{run.config}")
+                ax_partition.set_xlabel("Response time (s)")
+                ax_partition.set_ylabel("Fraction of jobs")
+                ax_partition.set_ylim(ymin=0)
+                ax_partition.set_xlim(xmin=0)
+
+                if args.show_plot:
+                    plt.show()
+
+
+                os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+                filename = os.path.join(OUTPUT_DIR, f"{config}_{job_type}ecdf_partition.{FIG_FORMAT}")
+                print(f"saving {filename}")
+                fig_partition.savefig(filename)
+                plt.close(fig_partition)
+
+    elif args.change_type == "custom4":
+        comp_user = "user4"
+        for config in CONFIGS:
+                fig_default, ax_default = plt.subplots()
+                empty = True
+                for bench in benches:
+                    if config not in bench.config:
+                        continue
+
+                    if "PARTITIONER"  in bench.scheduler:
+                        continue
+                    fig = fig_default
+                    ax = ax_default
+
+
+                    if FORMAL_NAME[bench.scheduler] not in args.compare_to:
+                        continue
+                    for run in bench.runs:
+
+
+
+                        job_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups if comp_user in user.name ]
+
+                        # if no such job for this benchmark, continue
+                        if len(job_rt) == 0:
+                            continue
+
+                        # no need to cmpare baseline to itself
+                        print(f"using schedule: {run.scheduler}")
+                        # get data for baseline
+
+                        # plot data
+
+                        label = None
+                        if FORMAL_NAME[run.scheduler] == "UWFQ" or FORMAL_NAME[run.scheduler] == "UWFQ-P" :
+                            label = (r'$\mathbf{{{}}}$'.format(FORMAL_NAME[run.scheduler]))
+                        else:
+                            label = (FORMAL_NAME[run.scheduler])
+
+                        ax.ecdf(job_rt, label=label, linestyle=SCHEDULER_LINE[run.scheduler], color=SCHEDULER_COLOR[run.scheduler])
+                        empty = False
+                        break
+
+
+                if empty:
+                    continue
+
+                ax_default.grid(True)
+                ax_default.legend()
+                # ax_default.set_title(f"Response time ECDF :{run.config}")
+                ax_default.set_xlabel("Response time (s)")
+                ax_default.set_ylabel("Fraction of jobs")
+                ax_default.set_ylim(ymin=0)
+                ax_default.set_xlim(xmin=0)
+
+                if args.show_plot:
+                    plt.show()
+
+
+                os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+                filename = os.path.join(OUTPUT_DIR, f"{config}_{comp_user}_ecdf.{FIG_FORMAT}")
+                print(f"saving {filename}")
+                fig_default.savefig(filename)
+                plt.close(fig_default)
+
+
+
 
 
 
@@ -1105,7 +1292,7 @@ if __name__ == "__main__":
     subparsers = parser.add_subparsers(title="Commands")
 
     create_table_parser = subparsers.add_parser("create_table", help="Create an excel table that summerizes all results")
-    create_table_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="CUSTOM_FAIR" )
+    create_table_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="UJF" )
     create_table_parser.set_defaults(func=create_table)
 
     timeline_parser = subparsers.add_parser("timeline", help="Create event timeline images")
@@ -1119,14 +1306,14 @@ if __name__ == "__main__":
 
     cdf_parser = subparsers.add_parser("cdf", help="Create ECDFs of response time")
     cdf_parser.add_argument("--change_type", help="Show different type of cdf metrics. Values: user, job, total, custom", default="total")
-    cdf_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="CUSTOM_FAIR" )
+    cdf_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="UJF" )
     cdf_parser.set_defaults(func=cdf)
 
 
 
     boxplot_parser = subparsers.add_parser("boxplots", help="Create boxplots of deadline violations")
     # cdf_parser.add_argument("--change_type", help="Show different type of cdf metrics. Values: user, job, total, custom", default="total")
-    boxplot_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="CUSTOM_FAIR" )
+    boxplot_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="UJF" )
     boxplot_parser.set_defaults(func=boxplot_deadline)
 
     # unfairness_parser = subparsers.add_parser("unfairness", help="Create unfairness boxplots")

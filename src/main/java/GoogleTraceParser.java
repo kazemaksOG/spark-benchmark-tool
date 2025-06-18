@@ -28,19 +28,27 @@ public class GoogleTraceParser {
                 .config(config.getSparkConfig())
                 .getOrCreate();
 
-
-        Dataset<Row> googleWorkflows = spark.read().parquet("resources/Google_parquets/workflows/schema-1.0");
-        Dataset<Row> googleTasks = spark.read().parquet("resources/Google_parquets/tasks/schema-1.0");
+        // Google_parquets askalon-new_ee43_parquet askalon_ee2_parquet
+        String benchmark = "Google_parquets";
+        Dataset<Row> googleWorkflows = spark.read().parquet("resources/" + benchmark + "/workflows/schema-1.0");
+        Dataset<Row> googleTasks = spark.read().parquet("resources/" + benchmark + "/tasks/schema-1.0");
 
 
         googleWorkflows.printSchema();
         googleTasks.printSchema();
 
+        long day = 17;
+        long second = 5000;
+        long period_s = 500;
+        long startTime = (day * 24 * 60 * 60 * 1000L) + second * 1000L;
+        long endTime = startTime + period_s * 1000L;
+
+
         Dataset<Row> combined = googleWorkflows.alias("workflows")
-                .where(col("workflows.ts_submit").geq(76_630_000L))
-                .where(col("workflows.ts_submit").leq(77_130_000L))
+                .where(col("workflows.ts_submit").geq(startTime))
+                .where(col("workflows.ts_submit").leq(endTime))
                 .join(googleTasks.alias("tasks"), col("workflows.id").equalTo(col("tasks.workflow_id")))
-                .where(col("tasks.resource_type").equalTo("core"))
+//                .where(col("tasks.resource_type").equalTo("core"))
                 .where(col("tasks.resource_amount_requested").gt(0))
                 .withColumn("ts_submit_seconds", col("workflows.ts_submit").divide(1000))
                 .withColumn("resource_run_time", col("tasks.runtime").multiply(col("tasks.resource_amount_requested")))
