@@ -17,7 +17,7 @@ import static org.apache.spark.sql.functions.*;
 
 public class LoopCustom extends Job {
 
-
+    private static final double accountForUnderestimation = 4.3;
     public LoopCustom(SparkSession spark, String inputPath, TreeMap<String, String> params) {
         super(spark, inputPath, params);
     }
@@ -30,7 +30,7 @@ public class LoopCustom extends Job {
         this.spark.sparkContext().setLocalProperty("task.runtime", Double.toString(task_runtime_s));
 
         // add job runtime and udf to spark
-        double job_runtime_s = Double.parseDouble(params.get("job_runtime_s"));
+        double job_runtime_s = Double.parseDouble(params.get("job_runtime_s")) * accountForUnderestimation;
         this.spark.sparkContext().setLocalProperty("job.runtime", Double.toString(job_runtime_s));
 
         Dataset<Row> parquetDataset = defaultParquetSetup();
