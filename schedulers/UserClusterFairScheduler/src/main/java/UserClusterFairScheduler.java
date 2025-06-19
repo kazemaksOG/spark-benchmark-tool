@@ -29,6 +29,19 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             }
             return false;
         }
+
+
+        public T getMin() {
+            Iterator<T> it = this.iterator();
+            T min = it.next();
+            while (it.hasNext()) {
+                T current = it.next();
+                if(comparator().compare(min, current) > 0) {
+                    min = current;
+                }
+            }
+            return min;
+        }
     }
 
 
@@ -127,11 +140,23 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             while (userIterator.hasNext()) {
                 User minUser = userIterator.next();
                 double userShare = ((double) this.totalCores) / ((double) activeUsers.size());
+                User otherMin = orderedUsers.getMin();
+
+
                 Optional<Long> userFinishTime = minUser.userRealFinishTime(
                         this.globalVirtualTime,
                         this.previousCurrentTime,
                         currentTime,
                         userShare);
+
+                Optional<Long> otherUserFinishTime = otherMin.userRealFinishTime(
+                        this.globalVirtualTime,
+                        this.previousCurrentTime,
+                        currentTime,
+                        userShare);
+
+                System.out.println("#### INFO: userfinish " + userFinishTime + " for user: " + minUser.name);
+                System.out.println("#### INFO: userfinish " + otherUserFinishTime + " for other minuser: " + otherMin.name);
                 // If the earliest user is not finished, break
                 if(userFinishTime.isEmpty()) {
                     break;
