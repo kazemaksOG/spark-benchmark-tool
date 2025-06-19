@@ -119,35 +119,35 @@ class Run:
             for user in self.users:
                 user.get_event_data(app_id, stages_json, jobs_json)
         else:
-            user_dict = self.get_users(app_id, stages_json, jobs_json)
-            for user_name in user_dict:
+            self.users = []
+            users = self.get_users(jobs_json)
+            for user_name in users:
                 user = User(user_name, [])
-                jobs_json = user_dict[user_name]
                 user.get_event_data(app_id, stages_json, jobs_json)
+                self.users.append(user)
 
 
 
-    def get_users(self, app_id, stages_json, jobs_json):
+    def get_users(self, jobs_json):
 
-        user_dict = {}
+        users = []
         for job in jobs_json.values():
             metadata = job["jobGroup"]
             user, jobgroup = get_user_and_workload(metadata)
 
-            
-            if user not in user_dict:
-                user_dict[user] = {}
+            if FILTER_DEFAULT and user == "null":
+                continue
+            if user not in users:
+                users.append(user)
 
-
-            user_dict[user][job["jobId"]].append(job)
         
-        return user_dict
+        return users
 
     
 
 class User:
     def __init__(self, name, base_runtimes):
-        self.name = name + "_" # to avoid misassociations
+        self.name = name
         self.base_runtimes = base_runtimes
         self.jobgroups = []
 
@@ -180,8 +180,7 @@ class User:
             jobgroup.get_event_data(app_id, jobs_json, stages_json)
             self.jobgroups.append(jobgroup)
                 
-
-        print(f"Done with all jobs for user {self.name}")
+        print(f"Done with all jobs for user {self.name}, with {len(self.jobgroups)} jobs")
 
 
 

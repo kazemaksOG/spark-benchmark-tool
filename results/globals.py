@@ -23,7 +23,8 @@ PARALLELIZATION_SCALING = 24
 
 # paths to benchmarks
 
-RUN_PATH="./data/micro_benchmarks/target"
+FILTER_DEFAULT = True
+RUN_PATH="./data/test_22-10/target"
 BENCH_PATH=f"{RUN_PATH}/bench_outputs"
 OUTPUT_DIR="./metrics"
 

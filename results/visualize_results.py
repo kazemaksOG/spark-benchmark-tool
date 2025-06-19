@@ -1075,6 +1075,7 @@ def timeline(args):
 
                     # create bins for stages
                     jobgroup_bin = Bin(jobgroup.start, jobgroup.end)
+                    jobgroup_bin.id = jobgroup.name
                     for stage in jobgroup.stages:
                         jobgroup_bin.add(Bin(stage.start, stage.end, id=stage.id))
 
@@ -1121,8 +1122,15 @@ def timeline(args):
                             axes[1].plot([stage_start_offset, stage_end_offset], [stage_offset,stage_offset], color='gray', linewidth=2)
                             axes[1].scatter(stage_start_offset, stage_offset, color='green', s=10, zorder=2)  # Start marker
                             axes[1].scatter(stage_end_offset, stage_offset, color='red', s=10, zorder=2)  # End marker
-                            if args.show_stage_id:
-                                axes[1].annotate(stage.id, (stage_start_offset,stage_offset), textcoords="offset points", xytext=(1,1), ha='left', fontsize=8, color="black")
+
+                    if args.show_stage_id:
+                        for stage in jobgroup.subbins:
+
+                            # to center the stages, add 1, so it ignores the ones on the edges of jobgroup
+                            stage_offset = jobgroup_offset + (jobgroup_height / (jobgroup.max + 1)) * (stage.pos + 1)
+                            stage_start_offset = stage.start - start_time
+                            stage_end_offset = stage.end - start_time
+                            axes[1].annotate(stage.id, (stage_start_offset,stage_offset), textcoords="offset points", xytext=(1,1), ha='left', fontsize=8, color="black")
 
                 # move the y position by the amount of overlapping jobgroup bins
                 y_postion+= JOBGROUP_BIN_SIZE * jobgroup_bins.max
