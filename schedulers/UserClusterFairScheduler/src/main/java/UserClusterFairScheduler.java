@@ -94,6 +94,11 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
 
         public void progressVirtualTime(long currentTime, double userShare) {
+            // If currentTime is smaller than previous time, it means
+            // that a revived user is trying to move the time forward, but its in the past
+            if (currentTime < this.previousCurrentTime) {
+                return;
+            }
             // check if there are any users in the system
             if(!this.activeUsers.isEmpty()) {
                 // Update global virtual time
@@ -306,27 +311,28 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             Iterator<Job> jobIterator = activeJobs.iterator();
             while (jobIterator.hasNext()) {
                 Job job = jobIterator.next();
-                long virtualTimeSpent = job.userVirtualDeadline - this.userVirtualTime;
-                long realTimeSpent = (long)(virtualTimeSpent / jobShare);
-                long jobRealFinishTime = previousCurrentTime + realTimeSpent;
-                if(jobRealFinishTime <= currentTime) {
+                long passedRealTime = currentTime - previousCurrentTime;
+                long currentUserVirtualTime = this.userVirtualTime + (long)(passedRealTime * jobShare);
+                if(job.userVirtualDeadline <= currentUserVirtualTime) {
+                    long virtualTimeSpent = job.userVirtualDeadline - this.userVirtualTime;
+                    long realTimeSpent = (long)(virtualTimeSpent / jobShare);
                     // advance virtual time based on amount of current shares
                     // if negative, it means that some stages are lagging behind, but we do not need to add them
                     // since virtual time already accounted for this job finishing
                     if(virtualTimeSpent >= 0 && !this.finishedJobs.containsKey(job.jobId)) {
                         this.userVirtualTime += virtualTimeSpent;
-                        previousCurrentTime = jobRealFinishTime;
+                        previousCurrentTime += realTimeSpent;
                         // advance user job virtual start time
                         this.globalVirtualStartTime += job.jobRuntime;
                         this.finishedJobs.put(job.jobId, job);
                         System.out.println("##### INFO: advancing globalStartTime for user: " + name
                                 + " globalStartTime: " + this.globalVirtualStartTime
                                 + " jobid: " + job.jobId 
-                                + " jobRealFinishTime: " + jobRealFinishTime
+                                + " realTimeSpent: " + realTimeSpent
                                 + " virtualTimeSpent: " + virtualTimeSpent
                                 + " userVirtualTime: " + userVirtualTime);
                     } else {
-                        System.out.println("##### INFO: late stage for user: " + name + "jobId:" + job.jobId + "job user deadline:" + job.userVirtualDeadline );
+                        System.out.println("##### ERROR: late stage for user: " + name + "jobId:" + job.jobId + "job user deadline:" + job.userVirtualDeadline + " virtualTimeSpent:" + virtualTimeSpent + " userVirtualTime:" + userVirtualTime + " finished: " +!this.finishedJobs.containsKey(job.jobId));
                     }
 
                     // remove the finished job and recalculate share
