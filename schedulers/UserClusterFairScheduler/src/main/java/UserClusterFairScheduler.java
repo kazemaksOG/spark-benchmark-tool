@@ -65,18 +65,18 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
         public User addOrGetUser(String userName, long jobId) {
             // first check if user previously existed
-            if (this.historicUsers.containsKey(userName)) {
-                // revive the user and remove from history
-                User oldUser = this.historicUsers.remove(userName);
-                oldUser.revive(this.globalVirtualTime, this.gracePeriod, jobId);
-
-                // add user to active users and ordered list
-                if (this.activeUsers.put(userName, oldUser) != null) {
-                    System.out.println("ERROR: User " + userName + " already in active users?");
-                }
-                this.orderedUsers.add(oldUser);
-                return oldUser;
-            }
+//            if (this.historicUsers.containsKey(userName)) {
+//                // revive the user and remove from history
+//                User oldUser = this.historicUsers.remove(userName);
+//                oldUser.revive(this.globalVirtualTime, this.gracePeriod, jobId);
+//
+//                // add user to active users and ordered list
+//                if (this.activeUsers.put(userName, oldUser) != null) {
+//                    System.out.println("ERROR: User " + userName + " already in active users?");
+//                }
+//                this.orderedUsers.add(oldUser);
+//                return oldUser;
+//            }
             // find the user in active users, or create it
             return this.activeUsers.computeIfAbsent(userName, mapUserName -> {
                 System.out.println("######## New user: " + mapUserName);

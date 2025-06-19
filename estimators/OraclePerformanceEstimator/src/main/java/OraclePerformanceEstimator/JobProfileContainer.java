@@ -112,7 +112,7 @@ public class JobProfileContainer {
 
         // if job is complete, or real runtime already set
         if (jobProfile.isFinished()) {
-            System.out.println("###### INFO: realRuntime: " + jobProfile.getRuntime() + " for job " + jobProfile.getJobId() + " for stage:" + stageId);
+            System.out.println("###### INFO: realRuntime: " + jobProfile.getRuntime() + " for job " + jobProfile.getJobGroupId() + " for stage:" + stageId);
             return new JobRuntime(jobProfile.getJobGroupId(), jobProfile.getRuntime());
         }
 
@@ -133,7 +133,7 @@ public class JobProfileContainer {
             return DEFAULT_JOB_RUNTIME;
         }
         long estimatedRuntime = totalRuntime / jobCount;
-        System.out.println("###### INFO: estimatedRuntime: " + estimatedRuntime + " for job " + jobProfile.getJobId() + " for stage:" + stageId);
+        System.out.println("###### INFO: estimatedRuntime: " + estimatedRuntime + " for job " + jobProfile.getJobGroupId() + " for stage:" + stageId);
         //update job estimated runtime
         jobProfile.updateEstimatedRuntime(estimatedRuntime);
         return new JobRuntime(jobProfile.getJobGroupId(), estimatedRuntime);
@@ -156,14 +156,14 @@ public class JobProfileContainer {
             if (stageNode != null) {
                 Set<Integer> stageNodeIds = stageNode.getStageNodeIds();
                 if (stageNodeIds.contains(2)) {
-                    System.out.println("###### INFO getStageRuntime: stageNodeIds estimatedRuntime: " + 1000 + " for job " + jobProfile.getJobId() + " for stage:" + stageId + "for stageNodeIds:" + stageNodeIds);
+                    System.out.println("###### INFO getStageRuntime: stageNodeIds estimatedRuntime: " + 1000 + " for job " + jobProfile.getJobGroupId() + " for stage:" + stageId + "for stageNodeIds:" + stageNodeIds);
                     return 1000L;
                 }
             }
 
             // if job is complete, or real runtime already set
             if (jobProfile.isFinished()) {
-                System.out.println("###### INFO getStageRuntime: realRuntime: " + jobProfile.getRuntime() + " for job " + jobProfile.getJobId() + " for stage:" + stageId);
+                System.out.println("###### INFO getStageRuntime: realRuntime: " + jobProfile.getRuntime() + " for job " + jobProfile.getJobGroupId() + " for stage:" + stageId);
                 return sqlJobProfile.getRuntime();
             }
 
@@ -184,11 +184,11 @@ public class JobProfileContainer {
                 return DEFAULT_STAGE_RUNTIME;
             }
             long estimatedRuntime = totalRuntime / jobCount;
-            System.out.println("###### INFO getStageRuntime: estimatedRuntime: " + estimatedRuntime + " for job " + jobProfile.getJobId() + " for stage:" + stageId);
+            System.out.println("###### INFO getStageRuntime: estimatedRuntime: " + estimatedRuntime + " for job " + jobProfile.getJobGroupId() + " for stage:" + stageId);
             return estimatedRuntime;
 
         } else if(jobProfile instanceof SingleStageJobProfile singleStageJobProfile) {
-            System.out.println("###### INFO getStageRuntime: estimatedRuntime: " + singleStageJobProfile.getRuntime() + " for job " + jobProfile.getJobId() + " for stage:" + stageId);
+            System.out.println("###### INFO getStageRuntime: estimatedRuntime: " + singleStageJobProfile.getRuntime() + " for job " + jobProfile.getJobGroupId() + " for stage:" + stageId);
             return singleStageJobProfile.getRuntime();
         } else {
             throw new RuntimeException("Unknown Job Profile " + jobProfile.getJobClass());
@@ -318,7 +318,7 @@ public class JobProfileContainer {
             sqlIdToJobProfile.put(sqlId, jobProfile);
         }
         executionIdToJobProfile.put(jobProfile.getExecutionId(), jobProfile);
-        System.out.println("###### INFO: job update: " + jobProfile.getJobId() + " sqlIds: " + jobProfile.getSqlNodeIds().toString() );
+        System.out.println("###### INFO: job update: " + jobProfile.getJobGroupId() + " sqlIds: " + jobProfile.getSqlNodeIds().toString() );
     }
 
     public void handleSparkListenerSQLAdaptiveExecutionUpdate(SparkListenerSQLAdaptiveExecutionUpdate sqlEvent) {
@@ -332,7 +332,7 @@ public class JobProfileContainer {
         for(int sqlId : jobProfile.getSqlNodeIds()) {
             sqlIdToJobProfile.put(sqlId, jobProfile);
         }
-        System.out.println("###### INFO: job update: " + jobProfile.getJobId() + " sqlIds: " + jobProfile.getSqlNodeIds().toString() );
+        System.out.println("###### INFO: job update: " + jobProfile.getJobGroupId() + " sqlIds: " + jobProfile.getSqlNodeIds().toString() );
     }
 
     public void handleSparkListenerSQLExecutionEnd(SparkListenerSQLExecutionEnd sqlEvent) {
