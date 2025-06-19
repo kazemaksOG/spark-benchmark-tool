@@ -29,28 +29,11 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             }
             return false;
         }
-
-
-        public T getMin() {
-            Iterator<T> it = this.iterator();
-            if (!it.hasNext()) {
-                throw new NoSuchElementException("Set is empty");
-            }
-
-            T min = it.next();
-            while (it.hasNext()) {
-                T current = it.next();
-                if (((Comparable<T>) min).compareTo(current) > 0) {
-                    min = current;
-                }
-            }
-            return min;
-        }
     }
 
 
 
-    private static final double BASE_GRACE_PERIOD_MS = 5000;
+    private static final double BASE_GRACE_PERIOD_MS = 0;
 
     class UserContainer {
         ConcurrentHashMap<String, User> activeUsers = new ConcurrentHashMap<>();
@@ -71,11 +54,6 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             this.gracePeriod = BASE_GRACE_PERIOD_MS * this.totalCores / 2;
         }
 
-        public boolean isEmpty() {
-            return this.activeUsers.isEmpty();
-        }
-
-
         public void setCores(int cores) {
             this.totalCores = cores;
             this.updateGracePeriod();
@@ -94,7 +72,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
                 // add user to active users and ordered list
                 if (this.activeUsers.put(userName, oldUser) != null) {
-                    System.out.println("User " + userName + " already in active users?");
+                    System.out.println("ERROR: User " + userName + " already in active users?");
                 }
                 this.orderedUsers.add(oldUser);
                 return oldUser;
@@ -144,7 +122,6 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             while (userIterator.hasNext()) {
                 User minUser = userIterator.next();
                 double userShare = ((double) this.totalCores) / ((double) activeUsers.size());
-                User otherMin = orderedUsers.getMin();
 
 
                 Optional<Long> userFinishTime = minUser.userRealFinishTime(
@@ -153,14 +130,6 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
                         currentTime,
                         userShare);
 
-                Optional<Long> otherUserFinishTime = otherMin.userRealFinishTime(
-                        this.globalVirtualTime,
-                        this.previousCurrentTime,
-                        currentTime,
-                        userShare);
-
-                System.out.println("#### INFO: userfinish " + userFinishTime + " for user: " + minUser.name);
-                System.out.println("#### INFO: userfinish " + otherUserFinishTime + " for other minuser: " + otherMin.name);
                 // If the earliest user is not finished, break
                 if(userFinishTime.isEmpty()) {
                     break;
