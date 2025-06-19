@@ -475,10 +475,10 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             }
             // We sort jobs based on their latest job global virtual deadline
             if(otherUser.activeJobs.isEmpty()) {
-                return -1;
+                return 1;
             }
             if(this.activeJobs.isEmpty()) {
-                return 1;
+                return -1;
             }
             int priority = Long.compare(this.activeJobs.last().getGlobalVirtualDeadline(), otherUser.activeJobs.last().getGlobalVirtualDeadline());
             // Since TreeSet uses comparator for also checking if elements are equal, we dont want to overwrite elements
