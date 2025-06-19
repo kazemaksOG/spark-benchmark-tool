@@ -33,10 +33,14 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
         public T getMin() {
             Iterator<T> it = this.iterator();
+            if (!it.hasNext()) {
+                throw new NoSuchElementException("Set is empty");
+            }
+
             T min = it.next();
             while (it.hasNext()) {
                 T current = it.next();
-                if(comparator().compare(min, current) > 0) {
+                if (((Comparable<T>) min).compareTo(current) > 0) {
                     min = current;
                 }
             }
