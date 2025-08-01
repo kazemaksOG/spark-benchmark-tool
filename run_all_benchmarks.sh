@@ -3,14 +3,13 @@
 
 # which benchmarks to run
 RUN_DEFAULT=1 # runs all schedulers with /configs/base_DAS5_config.json config
-RUN_INDIVIDUAL=0 # runs all jobs individually just to get expected runtimes without interference
-RUN_COALESCE=0 # runs workloads from $COALESCE_WORKLOAD_DIR
-RUN_AQE=0 # runs all schedulers with ./configs/base_AQE_config.json config
+RUN_INDIVIDUAL=0 # runs all jobs individually just to get expected runtimes without interference (Needed for micro-benchmarks, not needed for macro)
+
 
 # spark configs
 DEPLOY_MODE="client"
 MAIN_CLASS="BenchRunner"
-ITERATIONS=3
+ITERATIONS=1 # Increase if necessary to get average results
 
 
 # Paths
@@ -23,10 +22,17 @@ WORKLOAD_DIR="$PROJECT_DIR/configs/homo_macro"
 INDIVIDUAL_WORKLOAD_DIR="$PROJECT_DIR/configs/individual"
 COALESCE_WORKLOAD_DIR="$PROJECT_DIR/configs/coalesce"
 
+# Obsolete configs
+RUN_COALESCE=0 # runs workloads from $COALESCE_WORKLOAD_DIR (OBSOLETE)
+RUN_AQE=0 # runs all schedulers with ./configs/base_AQE_config.json config (OBSOLETE)
+
 
 # scheduler configs to use in benchmarks
 declare -A SCHEDULERS
 
+# Comment in or out the schedulers to be used in the experiment
+
+#SCHEDULERS[CUSTOM_SHORT]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=ShortestFirstSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/ShortestFirstScheduler/target/ShortestFirstScheduler-1.0-SNAPSHOT.jar"
 
 #SCHEDULERS[CUSTOM_RANDOM]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=RandomSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/RandomScheduler/target/RandomScheduler-1.0-SNAPSHOT.jar"
 

@@ -1,9 +1,9 @@
 # Usage: source ./script <OPTIONAL_RESERVATION_ID>
 
 # Deployer variables
-DEPLOYER_HOME="/home/$USER/das-bigdata-deployment-python3"
-TIME="00:15:00"
-MACHINES=5
+DEPLOYER_HOME="/var/scratch/$USER/test_dir/das-bigdata-deployment-python3"
+TIME="00:15:00" # time of the reservation. make sure experiments can finish within the allocated timeslot
+MACHINES=5 # amount of machines used in the experiment. 1 is for driver program, 4 are executors
 SPARK_VERSION="3.5.5-custom"
 
 
