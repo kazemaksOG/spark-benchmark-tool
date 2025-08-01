@@ -13,8 +13,5 @@ results/data
 results/metrics
 results/__pycache__
 
-# personal scripts
-gather_and_clean_results.sh
-
 # png
 *.png
