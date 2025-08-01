@@ -24,7 +24,7 @@ PARALLELIZATION_SCALING = 24
 # paths to benchmarks
 
 FILTER_DEFAULT = True
-RUN_PATH="./data/test_22-10/target"
+RUN_PATH="./data/hetero_benchmark_2/target"
 BENCH_PATH=f"{RUN_PATH}/bench_outputs"
 OUTPUT_DIR="./metrics"
 
@@ -93,7 +93,6 @@ SCHEDULER_ORDER = [
 #     # "AQE_DEFAULT_FIFO",
 #     # "AQE_DEFAULT_FAIR",
 # ]
-#
 
 SCHEDULERS = [
 

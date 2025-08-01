@@ -97,37 +97,45 @@ bash compile_mvn.sh
 
 ```
 cd spark-benchmark-tool/resources
-curl -L -o google-dataset.zip https://zenodo.org/records/3254540/files/Google_parquet.zip\?download\=1
 curl -L -o taxi-data.parquet https://d37ci6vzurychx.cloudfront.net/trip-data/fhvhv_tripdata_2024-08.parquet
 ```
 
 8. Use Spark to repartition tripdata.
 
 ```
+mkdir /tmp/spark-events # Sometimes it throws an error that it doesnt exist, so best to create it
+chmod 777 /tmp/spark-events # It needs access from any user, since spark executors need to write to it
 $SPARK_HOME/bin/spark-submit --class "RepartitionTaxiData" --master "local[2]" target/performance_test-1.0-SNAPSHOT.jar &> output.txt
 ```
 
-**Optional:** Can also use `GoogleTraceParser` to parse google traces if different timeframe is needed for the macro-experiment. The source file must be modified and recompiled, then submitted:
+**Note:** if using screen, `ctrl+a ctrl+c` can be used to crate a new window and view the `output.txt` file to track progress 
+
+**Optional:** Can also use `GoogleTraceParser` to parse google traces if different timeframe is needed for the macro-experiment. The source file must be modified and recompiled, then submitted. This will create a csv excerpt of the google trace, which then can be tranformed into a benchmark config file (see results).
 
 ```
+curl -L -o google-dataset.zip https://zenodo.org/records/3254540/files/Google_parquet.zip\?download\=1
+unzip google-dataset.zip
 bash compile_mvn.sh 
 $SPARK_HOME/bin/spark-submit --class "GoogleTraceParser" --master "local[2]" target/performance_test-1.0-SNAPSHOT.jar &> output.txt
 ```
+
 
 ## Running
 
 **Note: Don't forget to recompile any file that was changed.**
 
-1. Modify the `Deployer variables` on top of `setup_cluster.sh` script and source it. Can optionally supply the reservation ID if already made.
+**Note: recommended to launch `screen` before starting the setup, since commands are not killed in screen sessions, and can reattach back to sessions in case of a disconnect.**
+
+1. Modify the `Deployer variables` on top of `setup_cluster.sh`, and all relevant variables in `run_all_benchmarks.sh` (iteration amount, WORKLOAD_DIR (workload is the benchmark, synthetic is micro-benchmarks, homo_macro is the homogeneious macro-benchmark), comment in/out schedulers that will be run) . Then source it. Can optionally supply the reservation ID if already made.
 ```
-source setup_cluster.sh <OPTIONAL_RESERVATION_ID>
-```
-2. Modify benchmarks, spark configs, schedulers and paths on top of `run_all_benchmarks.sh` script and source it.
-```
-source run_all_benchmarks.sh RESERVATION_ID
+source setup_cluster.sh true <OPTIONAL_RESERVATION_ID>
 ```
 
-3. Follow instrucitons printed
+**Note:** if deployment fails due to python error (can be observed in logs created in `das-bigdata-deployment-python3` directory), then some python dependencies might be missing. This can be solved by creating a virtual environement `venv` in `das-bigdata-deployment-python3` directory, sourcing it, and installing `requirements.txt`.
+
+2. Read printed output, the benchmark should run automatically
+
+**Note:** if using screen, `ctrl+a ctrl+c` can be used to crate a new window and view the `output.txt` file to track progress 
 
 
 

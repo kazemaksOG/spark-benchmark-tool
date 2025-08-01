@@ -1,16 +1,20 @@
 import csv
 import os
+import math
 from globals import *
 
 
 
 
 
-def maybe_bold(val, col_name, highlight_values, is_int=False):
+def maybe_bold(val, col_name, highlight_values, is_int=False, length=4):
+    if math.isnan(val):
+        return "-"
+    val = abs(val)
     formatted = f"{int(round(val))}" if is_int else f"{val:.2f}"
     if val == highlight_values[col_name]:
-        return f"\\textbf{{{formatted[:4]}}}"
-    return formatted[:4]
+        return f"\\textbf{{{formatted[:length]}}}"
+    return formatted[:length]
 
 
 def latex_2_large_2_small_users(df_avg):
@@ -56,7 +60,7 @@ def latex_2_large_2_small_users(df_avg):
             f"{maybe_bold(row['loop100_ average response time'], 'loop100_ average response time', highlight_min)} | {maybe_bold(row['loop100_ average proportional slowdown'], 'loop100_ average proportional slowdown', highlight_min)} & "
             f"{maybe_bold(row['loop1000_ average response time'], 'loop1000_ average response time', highlight_min)} | {maybe_bold(row['loop1000_ average proportional slowdown'], 'loop1000_ average proportional slowdown', highlight_min)} & "
                 f"{maybe_bold(row['Total DVR'], 'Total DVR', highlight_min)} & {maybe_bold(row['Total violations'], 'Total violations', highlight_min, is_int=True)} & "
-                f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_max)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\ \\hline"
+                f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_min)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\ \\hline"
             )
         return (
             f"{FORMAL_NAME[row['Scheduler']]} & "
@@ -65,12 +69,13 @@ def latex_2_large_2_small_users(df_avg):
             f"{maybe_bold(row['loop100_ average response time'], 'loop100_ average response time', highlight_min)} | {maybe_bold(row['loop100_ average proportional slowdown'], 'loop100_ average proportional slowdown', highlight_min)} & "
             f"{maybe_bold(row['loop1000_ average response time'], 'loop1000_ average response time', highlight_min)} | {maybe_bold(row['loop1000_ average proportional slowdown'], 'loop1000_ average proportional slowdown', highlight_min)} & "
                 f"{maybe_bold(row['Total DVR'], 'Total DVR', highlight_min)} & {maybe_bold(row['Total violations'], 'Total violations', highlight_min, is_int=True)} & "
-                f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_max)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\"
+                f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_min)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\"
         )
 
     df_avg = df_avg.round(2)
     highlight_max = df_avg[cols_max].max()
-    highlight_min = df_avg[cols_min].min()
+    highlight_min = df_avg[cols_min].min().abs()
+    print(highlight_min)
     rows = [format_row(row, highlight_max, highlight_min) for _, row in df_avg.iterrows()]
 
 
@@ -163,7 +168,7 @@ def latex_2_power_2_small_users(df_avg):
             f"{maybe_bold(row['power_avg'], 'power_avg', highlight_min)} | {maybe_bold(row['power_avg_slow'], 'power_avg_slow', highlight_min)} & "
             f"{maybe_bold(row['small_avg'], 'small_avg', highlight_min)} | {maybe_bold(row['small_avg_slow'], 'small_avg_slow', highlight_min)} & "
             f"{maybe_bold(row['Total DVR'], 'Total DVR', highlight_min)} & {maybe_bold(row['Total violations'], 'Total violations', highlight_min, is_int=True)} & "
-            f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_max)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\ \\hline"
+            f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_min)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\ \\hline"
             )
         return (
             f"{FORMAL_NAME[row['Scheduler']]} & "
@@ -172,7 +177,7 @@ def latex_2_power_2_small_users(df_avg):
             f"{maybe_bold(row['power_avg'], 'power_avg', highlight_min)} | {maybe_bold(row['power_avg_slow'], 'power_avg_slow', highlight_min)} & "
             f"{maybe_bold(row['small_avg'], 'small_avg', highlight_min)} | {maybe_bold(row['small_avg_slow'], 'small_avg_slow', highlight_min)} & "
                 f"{maybe_bold(row['Total DVR'], 'Total DVR', highlight_min)} & {maybe_bold(row['Total violations'], 'Total violations', highlight_min, is_int=True)} & "
-                f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_max)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\"
+                f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_min)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\"
         )
 
     df_avg = df_avg[~(df_avg['Scheduler'].str.contains('PARTITIONER'))]
@@ -182,7 +187,7 @@ def latex_2_power_2_small_users(df_avg):
     df_avg['small_avg_slow'] = (df_avg['user3_small_ average proportional slowdown'] + df_avg['user4_small_ average proportional slowdown']) / 2
     df_avg = df_avg.round(2)
     highlight_max = df_avg[cols_max].max()
-    highlight_min = df_avg[cols_min].min()
+    highlight_min = df_avg[cols_min].min().abs()
     rows = [format_row(row, highlight_max, highlight_min) for _, row in df_avg.iterrows()]
 
 
@@ -272,7 +277,7 @@ def latex_4_large_users(df_avg):
             f"{maybe_bold(row['best_avg'], 'best_avg', highlight_min)} | {maybe_bold(row['best_avg_slow'], 'best_avg_slow', highlight_min)} & "
             f"{maybe_bold(row['worst_avg'], 'worst_avg', highlight_min)} | {maybe_bold(row['worst_avg_slow'], 'worst_avg_slow', highlight_min)} & "
             f"{maybe_bold(row['Total DVR'], 'Total DVR', highlight_min)} & {maybe_bold(row['Total violations'], 'Total violations', highlight_min, is_int=True)} & "
-            f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_max)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\ \\hline"
+            f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_min)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\ \\hline"
             )
         return (
             f"{FORMAL_NAME[row['Scheduler']]} & "
@@ -281,7 +286,7 @@ def latex_4_large_users(df_avg):
             f"{maybe_bold(row['best_avg'], 'best_avg', highlight_min)} | {maybe_bold(row['best_avg_slow'], 'best_avg_slow', highlight_min)} & "
             f"{maybe_bold(row['worst_avg'], 'worst_avg', highlight_min)} | {maybe_bold(row['worst_avg_slow'], 'worst_avg_slow', highlight_min)} & "
                 f"{maybe_bold(row['Total DVR'], 'Total DVR', highlight_min)} & {maybe_bold(row['Total violations'], 'Total violations', highlight_min, is_int=True)} & "
-                f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_max)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\"
+                f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_min)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\"
         )
 
 
@@ -308,7 +313,7 @@ def latex_4_large_users(df_avg):
 
     df_avg = df_avg.round(2)
     highlight_max = df_avg[cols_max].max()
-    highlight_min = df_avg[cols_min].min()
+    highlight_min = df_avg[cols_min].min().abs()
     rows = [format_row(row, highlight_max, highlight_min) for _, row in df_avg.iterrows()]
 
 
@@ -399,7 +404,7 @@ def latex_4_super_small_users(df_avg):
             f"{maybe_bold(row['best_avg'], 'best_avg', highlight_min)} | {maybe_bold(row['best_avg_slow'], 'best_avg_slow', highlight_min)} & "
             f"{maybe_bold(row['worst_avg'], 'worst_avg', highlight_min)} | {maybe_bold(row['worst_avg_slow'], 'worst_avg_slow', highlight_min)} & "
             f"{maybe_bold(row['Total DVR'], 'Total DVR', highlight_min)} & {maybe_bold(row['Total violations'], 'Total violations', highlight_min, is_int=True)} & "
-            f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_max)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\ \\hline"
+            f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_min)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\ \\hline"
             )
         return (
             f"{FORMAL_NAME[row['Scheduler']]} & "
@@ -408,7 +413,7 @@ def latex_4_super_small_users(df_avg):
             f"{maybe_bold(row['best_avg'], 'best_avg', highlight_min)} | {maybe_bold(row['best_avg_slow'], 'best_avg_slow', highlight_min)} & "
             f"{maybe_bold(row['worst_avg'], 'worst_avg', highlight_min)} | {maybe_bold(row['worst_avg_slow'], 'worst_avg_slow', highlight_min)} & "
                 f"{maybe_bold(row['Total DVR'], 'Total DVR', highlight_min)} & {maybe_bold(row['Total violations'], 'Total violations', highlight_min, is_int=True)} & "
-                f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_max)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\"
+                f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_min)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\"
         )
 
     df_avg = df_avg[~(df_avg['Scheduler'].str.contains('PARTITIONER'))]
@@ -440,7 +445,7 @@ def latex_4_super_small_users(df_avg):
 
     df_avg = df_avg.round(2)
     highlight_max = df_avg[cols_max].max()
-    highlight_min = df_avg[cols_min].min()
+    highlight_min = df_avg[cols_min].min().abs()
     rows = [format_row(row, highlight_max, highlight_min) for _, row in df_avg.iterrows()]
 
 
@@ -490,8 +495,190 @@ def latex_4_super_small_users(df_avg):
 
 def latex_hetero_macro(df_avg):
     print("Making latex table for hetero_macro")
+
+    
+    cols_min = [
+        'average response time',
+        'Total DVR',
+        'Total violations',
+        'Total DSR',
+        'Total gains',
+        'total time',
+        'average response time (worst80)',
+        'average response time (worst95)',
+        'average response time (worst100)',
+    ]
+
+
+    cols_max = [
+        'Total gains',
+    ]
+
+    def format_row(row, highlight_max, highlight_min):
+        if "UJF" in FORMAL_NAME[row['Scheduler']]:
+            return (
+                f"{FORMAL_NAME[row['Scheduler']]} & "
+                f"{maybe_bold(row['total time'], 'total time', highlight_min, length=5)} &"
+                f"{maybe_bold(row['average response time'], 'average response time', highlight_min, length=5)} &"
+                f"{maybe_bold(row['average response time (worst80)'], 'average response time (worst80)', highlight_min, length=5)} &"
+                f"{maybe_bold(row['average response time (worst95)'], 'average response time (worst95)', highlight_min, length=5)} &"
+                f"{maybe_bold(row['average response time (worst100)'], 'average response time (worst100)', highlight_min, length=5)} &"
+                f"- & - & "
+                f"- & - \\\\")
+        if "UWFQ" in FORMAL_NAME[row['Scheduler']]:
+
+            return (
+            f"{FORMAL_NAME[row['Scheduler']]} (this work) & "
+            f"{maybe_bold(row['total time'], 'total time', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time'], 'average response time', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time (worst80)'], 'average response time (worst80)', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time (worst95)'], 'average response time (worst95)', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time (worst100)'], 'average response time (worst100)', highlight_min, length=5)} &"
+                f"{maybe_bold(row['Total DVR'], 'Total DVR', highlight_min)} & {maybe_bold(row['Total violations'], 'Total violations', highlight_min, is_int=True)} & "
+            f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_min)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\ \\hline"
+            )
+        return (
+            f"{FORMAL_NAME[row['Scheduler']]} & "
+            f"{maybe_bold(row['total time'], 'total time', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time'], 'average response time', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time (worst80)'], 'average response time (worst80)', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time (worst95)'], 'average response time (worst95)', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time (worst100)'], 'average response time (worst100)', highlight_min, length=5)} &"
+            f"{maybe_bold(row['Total DVR'], 'Total DVR', highlight_min)} & {maybe_bold(row['Total violations'], 'Total violations', highlight_min, is_int=True)} & "
+            f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_min)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\"
+        )
+
+    df_avg = df_avg.round(2)
+    highlight_max = df_avg[cols_max].max()
+    highlight_min = df_avg[cols_min].min().abs()
+    rows = [format_row(row, highlight_max, highlight_min) for _, row in df_avg.iterrows()]
+
+
+    latex_table = r"""
+\begin{table}[h!]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|c|c|cccc|cc|cc|}
+\hline
+\textbf{Scheduler} & \textbf{Runtime} & \multicolumn{4}{c|}{\textbf{Response time (s)}} & \multicolumn{4}{c|}{\textbf{Fairness}} \\
+\cline{3-10}
+& & \textbf{Avg.\%} & \textbf{0--80\%} & \textbf{80--95\%} & \textbf{95--100\%}
+& \textbf{DVR} & \textbf{Count} & \textbf{DSR} & \textbf{Count}
+\\
+\hline
+
+
+""" + "\n".join(rows) + r"""
+\end{tabular}
+}
+\caption{Comparison of scheduler performance metrics for heterogeneous benchmark.}
+\label{table: hetero macro}
+\end{table}
+
+"""
+
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    output_file = os.path.join(OUTPUT_DIR, f"hetero_benchmark.tex")
+
+    with open(output_file, "w") as f:
+        f.write(latex_table)
+
+
+
+
+
 def latex_homo_macro(df_avg):
     print("Making latex table for homo_macro")
+
+
+    cols_min = [
+        'average response time',
+        'Total DVR',
+        'Total violations',
+        'Total DSR',
+        'Total gains',
+        'total time',
+        'average response time (worst80)',
+        'average response time (worst95)',
+        'average response time (worst100)',
+    ]
+
+
+    cols_max = [
+        'Total gains',
+    ]
+
+    def format_row(row, highlight_max, highlight_min):
+        if "UJF" in FORMAL_NAME[row['Scheduler']]:
+            return (
+                f"{FORMAL_NAME[row['Scheduler']]} & "
+                f"{maybe_bold(row['total time'], 'total time', highlight_min, length=5)} &"
+                f"{maybe_bold(row['average response time'], 'average response time', highlight_min, length=5)} &"
+                f"{maybe_bold(row['average response time (worst80)'], 'average response time (worst80)', highlight_min, length=5)} &"
+                f"{maybe_bold(row['average response time (worst95)'], 'average response time (worst95)', highlight_min, length=5)} &"
+                f"{maybe_bold(row['average response time (worst100)'], 'average response time (worst100)', highlight_min, length=5)} &"
+                f"- & - & "
+                f"- & - \\\\")
+        if "UWFQ" in FORMAL_NAME[row['Scheduler']]:
+
+            return (
+            f"{FORMAL_NAME[row['Scheduler']]} (this work) & "
+            f"{maybe_bold(row['total time'], 'total time', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time'], 'average response time', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time (worst80)'], 'average response time (worst80)', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time (worst95)'], 'average response time (worst95)', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time (worst100)'], 'average response time (worst100)', highlight_min, length=5)} &"
+                f"{maybe_bold(row['Total DVR'], 'Total DVR', highlight_min)} & {maybe_bold(row['Total violations'], 'Total violations', highlight_min, is_int=True)} & "
+            f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_min)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\ \\hline"
+            )
+        return (
+            f"{FORMAL_NAME[row['Scheduler']]} & "
+            f"{maybe_bold(row['total time'], 'total time', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time'], 'average response time', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time (worst80)'], 'average response time (worst80)', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time (worst95)'], 'average response time (worst95)', highlight_min, length=5)} &"
+            f"{maybe_bold(row['average response time (worst100)'], 'average response time (worst100)', highlight_min, length=5)} &"
+            f"{maybe_bold(row['Total DVR'], 'Total DVR', highlight_min)} & {maybe_bold(row['Total violations'], 'Total violations', highlight_min, is_int=True)} & "
+            f"{maybe_bold(row['Total DSR'], 'Total DSR', highlight_min)} & {maybe_bold(row['Total gains'], 'Total gains', highlight_max, is_int=True)} \\\\"
+        )
+
+    df_avg = df_avg.round(2)
+    highlight_max = df_avg[cols_max].max()
+    highlight_min = df_avg[cols_min].min().abs()
+    rows = [format_row(row, highlight_max, highlight_min) for _, row in df_avg.iterrows()]
+
+
+    latex_table = r"""
+\begin{table}[h!]
+\centering
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{|c|c|cccc|cc|cc|}
+\hline
+\textbf{Scheduler} & \textbf{Runtime} & \multicolumn{4}{c|}{\textbf{Response time (s)}} & \multicolumn{4}{c|}{\textbf{Fairness}} \\
+\cline{3-10}
+& & \textbf{Avg.\%} & \textbf{0--80\%} & \textbf{80--95\%} & \textbf{95--100\%}
+& \textbf{DVR} & \textbf{Count} & \textbf{DSR} & \textbf{Count}
+\\
+\hline
+
+
+""" + "\n".join(rows) + r"""
+
+\end{tabular}
+}
+\caption{Comparison of scheduler performance metrics for homogeneous benchmark.}
+\label{table: homo macro}
+\end{table}
+
+"""
+
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
+    output_file = os.path.join(OUTPUT_DIR, f"homo_benchmark.tex")
+
+    with open(output_file, "w") as f:
+        f.write(latex_table)
+
+
 
 
 

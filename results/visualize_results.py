@@ -75,6 +75,7 @@ def create_table(args):
 
 
             all_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups]
+            print(f"Total job amount: {len(all_rt)}")
             avg_rt = get_average(all_rt)
             avg_rt_10 = get_worst_10_percent(all_rt)
             slowdown_avg = get_average(all_slowdowns) 
@@ -103,7 +104,7 @@ def create_table(args):
                 ("average response time", avg_rt),
                 ("average response time (worst10%)", avg_rt_10),
                 
-                ("average response time (worst85)", top_80_avg),
+                ("average response time (worst80)", top_80_avg),
                 ("average response time (worst95)", next_15_avg),
                 ("average response time (worst100)", last_5_avg),
                 
@@ -155,11 +156,17 @@ def create_table(args):
                     (f"{job_type} average proportional slowdown (worst 1%)", jobs_prop_slowdown_avg_1),
                 ])
 
+
+            users_rt_avg = []
+            users_rt_avg_10 = []
             for user in run.users:
                 # calculate user metrics
                 user_runtime = [jobgroup.total_time for jobgroup in user.jobgroups]
                 user_slowdown =  [jobgroup.slowdown for jobgroup in user.jobgroups ]
                 user_prop_slowdown =  [jobgroup.proportional_slowdown for jobgroup in user.jobgroups]
+                user_job_amount = len(user_runtime)
+                if len(user_runtime) == 0:
+                    continue
 
                 user_rt_avg = get_average(user_runtime)
                 user_rt_avg_10 = get_worst_10_percent(user_runtime)
@@ -175,11 +182,15 @@ def create_table(args):
                 user_prop_slowdown_avg_10 = get_worst_10_percent(user_prop_slowdown)
                 user_prop_slowdown_avg_1 = get_worst_1_percent(user_prop_slowdown)
 
+                users_rt_avg.append(user_rt_avg)
+                users_rt_avg_10.append(user_rt_avg_10)
+
 
                 run_row.extend([
                     (f"{user.name} average response time", user_rt_avg),
-                    (f"{user.name} average proportional slowdown (worst 10%)", user_prop_slowdown_avg_10),
                     (f"{user.name} average response time (worst 10%)", user_rt_avg_10),
+                    (f"{user.name} job amount", user_job_amount),
+                    (f"{user.name} average proportional slowdown (worst 10%)", user_prop_slowdown_avg_10),
                     (f"{user.name} average proportional slowdown", user_prop_slowdown_avg),
                     # (f"{user.name} average absolute slowdown", user_slowdown_avg),
 
@@ -190,6 +201,16 @@ def create_table(args):
 
                     # (f"{user.name} average proportional slowdown (worst 1%)", user_prop_slowdown_avg_1),
                 ])
+
+            
+            user_avg_avg = get_average(users_rt_avg)
+            user_avg_10_avg = get_average(users_rt_avg_10)
+
+            run_row.extend([
+                (f"user average average response time", user_avg_avg),
+                (f"user average average (worst 10%) response time", user_avg_10_avg),
+            ])
+
 
             # compare to fair scheduler
             deadline_violation = []
@@ -202,7 +223,7 @@ def create_table(args):
             start_time_base = min(base_jobgroup.start for user in baseline_run.users for base_jobgroup in user.jobgroups)
             for job_type in JOB_TYPES:
                 for user in run.users:
-                    if run.scheduler != args.compare_to:
+                    # if run.scheduler != args.compare_to:
                         for jobgroup in user.jobgroups:
                             if jobgroup.job_type != job_type:
                                 continue
@@ -309,7 +330,7 @@ def create_table(args):
                 (f"worst user DSR", worst_user_gain),
             ])
 
-                        
+
             avg_deadline_miss = get_average(deadline_violation) 
             deadline_miss = len(deadline_violation)
 
@@ -352,7 +373,7 @@ def create_table(args):
         if bench.config not in average_rows.keys():
             average_rows[bench.config] = []
         average_rows[bench.config].append(average_row)
-        print(f"finished: bench.app_name")
+        print(f"finished: {bench.app_name}")
 
     for config in CONFIGS:
         if config not in run_rows.keys():
@@ -396,94 +417,204 @@ def boxplot_deadline(args):
 
     
 
-
-
-    for config in CONFIGS:
-        fig_default, ax_default = plt.subplots()
-        labels_default = []
-        #labels_partition = []
-        fig_partition, ax_partition = plt.subplots()
-        labels = []
-        empty = True
-        for index, bench in enumerate(benches):
-            if bench.config != config:
-                continue
-
-            baseline_benches = None 
-            ax = None
-
-            labels = labels_default
-            ax = ax_default
-            if "PARTITIONER" in bench.scheduler:
-                baseline_benches = get_benchmarks(args.compare_to + "-P", bench.config)
-                continue
-                # labels = labels_partition
-                # ax = ax_partition
-            else:
-                baseline_benches = get_benchmarks(args.compare_to, bench.config)
-                # labels = labels_default
-                # ax = ax_default
-
-            deadline_violation = []
-            deadline_slack = []
-            for iteration, run in enumerate(bench.runs):
-
-                if FORMAL_NAME[run.scheduler] == args.compare_to or FORMAL_NAME[run.scheduler] == args.compare_to + "-P":
+    if args.change_type == "default":
+        for config in CONFIGS:
+            fig_default, ax_default = plt.subplots()
+            labels_default = []
+            #labels_partition = []
+            fig_partition, ax_partition = plt.subplots()
+            labels = []
+            empty = True
+            for index, bench in enumerate(benches):
+                if bench.config != config:
                     continue
 
-                # get start times
-                start_time = min(jobgroup.start for user in run.users for jobgroup in user.jobgroups)
+                baseline_benches = None 
+                ax = None
 
-                # compare to fair scheduler
-                baseline_run = (baseline_benches[0]).runs[0]
-
-                start_time_base = min(base_jobgroup.start for user in baseline_run.users for base_jobgroup in user.jobgroups)
-                for user in run.users:
-                    if run.scheduler != args.compare_to:
-                        for jobgroup in user.jobgroups:
-                            baseline_jobgroup = [base_jobgroup for user_base in baseline_run.users for base_jobgroup in user_base.jobgroups if base_jobgroup.name == jobgroup.name]
-                            if len(baseline_jobgroup) == 0:
-                                print("skipping: " + jobgroup.name + " for: " + baseline_run.scheduler)
-                                continue
-
-                            baseline_jobgroup = baseline_jobgroup[0]
-                            # print("running: " + jobgroup.name + " for: " + run.scheduler)
-                            # print(f"name: {baseline_jobgroup.name}")
-                            # print(f"target: {jobgroup.total_time} base: {baseline_jobgroup.total_time}")
-
-
-                            offset_target_end = jobgroup.end - start_time
-                            offset_base_end = baseline_jobgroup.end - start_time_base
-                            deadline_ratio = ((offset_target_end - offset_base_end)/ baseline_jobgroup.total_time) 
-                            # print(f"target: {offset_target_end} base: {offset_base_end}")
-                            # print(f"ratio: {deadline_ratio}")
-                            if deadline_ratio > 0:
-                                deadline_violation.append(deadline_ratio)
-                            else:
-                                deadline_slack.append(deadline_ratio)
-
-                if FORMAL_NAME[run.scheduler] == "UWFQ" or FORMAL_NAME[run.scheduler] == "UWFQ-P" :
-                    labels.append(r'$\mathbf{{{}}}$'.format(FORMAL_NAME[run.scheduler]))
+                labels = labels_default
+                ax = ax_default
+                if "PARTITIONER" in bench.scheduler:
+                    baseline_benches = get_benchmarks(args.compare_to + "-P", bench.config)
+                    # continue
+                    # labels = labels_partition
+                    # ax = ax_partition
                 else:
-                    labels.append(FORMAL_NAME[run.scheduler])
-                print(f"done {run.scheduler}, {run.config}, with amount of deadlines: {len(deadline_violation + deadline_slack)}")
-                empty = False
+                    baseline_benches = get_benchmarks(args.compare_to, bench.config)
+                    # labels = labels_default
+                    # ax = ax_default
+
+                deadline_violation = []
+                deadline_slack = []
+                for iteration, run in enumerate(bench.runs):
+
+                    if FORMAL_NAME[run.scheduler] == args.compare_to or FORMAL_NAME[run.scheduler] == args.compare_to + "-P":
+                        continue
+
+
+                    # if FORMAL_NAME[run.scheduler] == "Fair" or FORMAL_NAME[run.scheduler] == "Fair-P":
+                    #     continue
+                    #
+
+                    # get start times
+                    start_time = min(jobgroup.start for user in run.users for jobgroup in user.jobgroups)
+
+                    # compare to fair scheduler
+                    baseline_run = (baseline_benches[0]).runs[0]
+
+                    start_time_base = min(base_jobgroup.start for user in baseline_run.users for base_jobgroup in user.jobgroups)
+                    for user in run.users:
+                        if run.scheduler != args.compare_to:
+                            for jobgroup in user.jobgroups:
+                                baseline_jobgroup = [base_jobgroup for user_base in baseline_run.users for base_jobgroup in user_base.jobgroups if base_jobgroup.name == jobgroup.name]
+                                if len(baseline_jobgroup) == 0:
+                                    print("skipping: " + jobgroup.name + " for: " + baseline_run.scheduler)
+                                    continue
+
+                                baseline_jobgroup = baseline_jobgroup[0]
+                                # print("running: " + jobgroup.name + " for: " + run.scheduler)
+                                # print(f"name: {baseline_jobgroup.name}")
+                                # print(f"target: {jobgroup.total_time} base: {baseline_jobgroup.total_time}")
+
+
+                                offset_target_end = jobgroup.end - start_time
+                                offset_base_end = baseline_jobgroup.end - start_time_base
+                                deadline_ratio = ((offset_target_end - offset_base_end)/ baseline_jobgroup.total_time) 
+                                # print(f"target: {offset_target_end} base: {offset_base_end}")
+                                # print(f"ratio: {deadline_ratio}")
+                                if deadline_ratio > 0:
+                                    deadline_violation.append(deadline_ratio)
+                                else:
+                                    deadline_slack.append(deadline_ratio)
+
+                    if FORMAL_NAME[run.scheduler] == "UWFQ" or FORMAL_NAME[run.scheduler] == "UWFQ-P" :
+                        labels.append(r'$\mathbf{{{}}}$'.format(FORMAL_NAME[run.scheduler]))
+                    else:
+                        labels.append(FORMAL_NAME[run.scheduler])
+                    print(f"done {run.scheduler}, {run.config}, with amount of deadlines: {len(deadline_violation + deadline_slack)}")
+                    empty = False
+                    break
+
+                if len(deadline_slack) == 0:
+                    continue
+        
+                position = len(labels) - 1
+                ax.boxplot(deadline_violation + deadline_slack, positions=[position], widths=0.6)            
+                if "-P" in labels[len(labels) - 1]:
+                    ax.axvline(x=position + 0.5, color='gray', linestyle='--', linewidth=1)
+
+
+
+            if empty:
+                continue
+
+            ax_default.set_xlabel("Scheduler")
+            ax_default.set_ylabel("Job proportional slack/violation")
+            ax_default.set_xticks(range(len(labels_default)))
+            ax_default.set_xticklabels(labels_default, rotation=45, ha='right')
+            ax_default.axhline(y=0, color='red', linestyle='--', linewidth=1)
+
+            plt.tight_layout()
+            if args.show_plot:
+                plt.show()
+
+
+            # make a dir if necessary
+            os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+            filename = os.path.join(OUTPUT_DIR, f"{config}_deadline_boxplots.{FIG_FORMAT}") 
+            print(f"saving {filename}")
+            fig_default.savefig(filename, bbox_inches='tight')
+            plt.close(fig_default)
+
+
+
+            # ax_partition.set_xticks(range(len(labels_partition)))
+            # ax_partition.set_xticklabels(labels_partition, rotation=45, ha='right')
+            # ax_partition.axhline(y=0, color='red', linestyle='--', linewidth=1)
+            # plt.tight_layout()
+            #
+            # if args.show_plot:
+            #     plt.show()
+            #
+            # # make a dir if necessary
+            # os.makedirs(OUTPUT_DIR, exist_ok=True)
+            #
+            # filename = os.path.join(OUTPUT_DIR, f"{config}_deadline_boxplots_partition.{FIG_FORMAT}") 
+            # print(f"saving {filename}")
+            # fig_partition.savefig(filename, bbox_inches='tight')
+            # plt.close(fig_partition)
+
+    elif args.change_type == "custom1":
+
+        all_user_rt = {}
+        for bench in benches:
+            for iteration, run in enumerate(bench.runs):
+
+                users_rt_avg = []
+                users_rt_avg_10 = []
+                for user in run.users:
+                    # calculate user metrics
+                    user_runtime = [jobgroup.total_time for jobgroup in user.jobgroups]
+                    user_slowdown =  [jobgroup.slowdown for jobgroup in user.jobgroups ]
+                    user_prop_slowdown =  [jobgroup.proportional_slowdown for jobgroup in user.jobgroups]
+                    user_job_amount = len(user_runtime)
+                    if len(user_runtime) == 0:
+                        continue
+
+                    user_rt_avg = get_average(user_runtime)
+                    user_rt_avg_10 = get_worst_10_percent(user_runtime)
+                    user_rt_avg_1 = get_worst_1_percent(user_runtime)
+
+
+                    user_slowdown_avg = get_average(user_slowdown)
+                    user_slowdown_avg_10 = get_worst_10_percent(user_slowdown)
+                    user_slowdown_avg_1 = get_worst_1_percent(user_slowdown)
+
+
+                    user_prop_slowdown_avg = get_average(user_prop_slowdown)
+                    user_prop_slowdown_avg_10 = get_worst_10_percent(user_prop_slowdown)
+                    user_prop_slowdown_avg_1 = get_worst_1_percent(user_prop_slowdown)
+
+                    users_rt_avg.append(user_rt_avg)
+                    users_rt_avg_10.append(user_rt_avg_10)
+
+
+                all_user_rt[FORMAL_NAME[run.scheduler]] = users_rt_avg
                 break
-    
+
+
+
+
+        fig_default, ax_default = plt.subplots()
+        labels = []
+        for scheduler in all_user_rt.keys():
+            if "UJF" in scheduler:
+                continue
+
+            if "Fair" in scheduler:
+                continue
+            baseline_benches = None 
+            if "PARTITIONER" in scheduler:
+                baseline_benches = all_user_rt["UJF-P"]
+            else:
+                baseline_benches = all_user_rt["UJF"]
+
+            if scheduler == "UWFQ" or scheduler == "UWFQ-P" :
+                labels.append(r'$\mathbf{{{}}}$'.format(scheduler))
+            else:
+                labels.append(scheduler)
+
+            slowdown = (np.array(all_user_rt[scheduler]) / np.array(baseline_benches)) - 1
             position = len(labels) - 1
-            ax.boxplot(deadline_violation + deadline_slack, positions=[position], widths=0.6)            
+            ax_default.boxplot(slowdown, positions=[position], widths=0.6)            
             if "-P" in labels[len(labels) - 1]:
-                ax.axvline(x=position + 0.5, color='gray', linestyle='--', linewidth=1)
-
-
-
-        if empty:
-            continue
+                ax_default.axvline(x=position + 0.5, color='gray', linestyle='--', linewidth=1)
 
         ax_default.set_xlabel("Scheduler")
-        ax_default.set_ylabel("Job proportional slack/violation")
-        ax_default.set_xticks(range(len(labels_default)))
-        ax_default.set_xticklabels(labels_default, rotation=45, ha='right')
+        ax_default.set_ylabel("User proportional slack/violation")
+        ax_default.set_xticks(range(len(labels)))
+        ax_default.set_xticklabels(labels, rotation=45, ha='right')
         ax_default.axhline(y=0, color='red', linestyle='--', linewidth=1)
 
         plt.tight_layout()
@@ -494,28 +625,13 @@ def boxplot_deadline(args):
         # make a dir if necessary
         os.makedirs(OUTPUT_DIR, exist_ok=True)
 
-        filename = os.path.join(OUTPUT_DIR, f"{config}_deadline_boxplots.{FIG_FORMAT}") 
+        filename = os.path.join(OUTPUT_DIR, f"user_deadline_boxplots.{FIG_FORMAT}") 
         print(f"saving {filename}")
         fig_default.savefig(filename, bbox_inches='tight')
         plt.close(fig_default)
 
 
 
-        # ax_partition.set_xticks(range(len(labels_partition)))
-        # ax_partition.set_xticklabels(labels_partition, rotation=45, ha='right')
-        # ax_partition.axhline(y=0, color='red', linestyle='--', linewidth=1)
-        # plt.tight_layout()
-        #
-        # if args.show_plot:
-        #     plt.show()
-        #
-        # # make a dir if necessary
-        # os.makedirs(OUTPUT_DIR, exist_ok=True)
-        #
-        # filename = os.path.join(OUTPUT_DIR, f"{config}_deadline_boxplots_partition.{FIG_FORMAT}") 
-        # print(f"saving {filename}")
-        # fig_partition.savefig(filename, bbox_inches='tight')
-        # plt.close(fig_partition)
 
 
 def plot_and_save_cdf(target, baseline, target_name, base_name, folder, output):
@@ -724,7 +840,7 @@ def cdf(args):
                 for bench in benches:
                     if config not in bench.config:
                         continue
-                    if "PARTITIONER" in bench.scheduler:
+                    if "PARTITIONER" not in bench.scheduler:
                         print(f"skipping: {bench.scheduler}")
                         continue
                     if FORMAL_NAME[bench.scheduler] not in args.compare_to:
@@ -1320,7 +1436,7 @@ if __name__ == "__main__":
 
 
     boxplot_parser = subparsers.add_parser("boxplots", help="Create boxplots of deadline violations")
-    # cdf_parser.add_argument("--change_type", help="Show different type of cdf metrics. Values: user, job, total, custom", default="total")
+    boxplot_parser.add_argument("--change_type", help="Show different type of boxplots. Values: default, custom1", default="default")
     boxplot_parser.add_argument("--compare_to", help="Scheduler to be taken as base", default="UJF" )
     boxplot_parser.set_defaults(func=boxplot_deadline)
 
