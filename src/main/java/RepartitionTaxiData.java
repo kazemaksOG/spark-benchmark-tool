@@ -28,7 +28,7 @@ public class RepartitionTaxiData {
             Dataset<Row> parquet = spark.read().parquet("resources/taxi-data.parquet");
             parquet.printSchema();
 
-            parquet.write().partitionBy("PULocationID").parquet("resources/tripdata-partitionBy-PULocationID");
+            parquet.write().partitionBy("PULocationID").parquet("resources/tripdata-partitionBy-PULocationID.parquet");
 
         }
 
