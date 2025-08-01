@@ -29,7 +29,7 @@ public class GoogleTraceParser {
                 .getOrCreate();
 
         // Google_parquets askalon-new_ee43_parquet askalon_ee2_parquet
-        String benchmark = "Google_parquets";
+        String benchmark = "Google_parquet";
         Dataset<Row> googleWorkflows = spark.read().parquet("resources/" + benchmark + "/workflows/schema-1.0");
         Dataset<Row> googleTasks = spark.read().parquet("resources/" + benchmark + "/tasks/schema-1.0");
 

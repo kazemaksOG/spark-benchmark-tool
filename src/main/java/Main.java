@@ -1,5 +1,6 @@
 
 import config.Config;
+import jobs.UdfContainer;
 import org.apache.spark.executor.TaskMetrics;
 import org.apache.spark.scheduler.*;
 import org.apache.spark.sql.Dataset;
@@ -7,6 +8,7 @@ import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
 import org.apache.spark.sql.execution.ui.*;
+import org.apache.spark.sql.functions;
 import org.apache.spark.storage.RDDInfo;
 import scala.collection.JavaConverters;
 import scala.collection.Seq;
@@ -40,13 +42,24 @@ public class Main {
                 .config(config.getSparkConfig())
                 .getOrCreate();
 
-        System.out.println("###############Listener added");
-        spark.sparkContext().setLocalProperty("job.class", "jobs.implementations.SuperShortOperation");
+        // register UDFS
+        UdfContainer.registerUdfs(spark);
 
-        Dataset<Row> parquet = spark.read().parquet("resources/fhvhv_tripdata_2024-08.parquet");
+        Dataset<Row> parquet = spark.read().parquet("resources/tripdata-partitionBy-PULocationID.parquet");
         parquet.printSchema();
 
-        parquet.write().partitionBy("PULocationID").parquet("resources/tripdata-partitionBy-PULocationID");
+
+        Dataset<Row> mappedParquet = parquet.withColumn("DOLocationID", functions.callUDF("loop1000", col("DOLocationID")));
+        mappedParquet = mappedParquet.agg(sum("DOLocationID")).alias("sum");
+
+        Row[] collected = (Row[]) mappedParquet.take(10);
+        for(Row row : collected) {
+            System.out.println(row.toString());
+        }
+
+//        parquet.write().partitionBy("PULocationID").parquet("resources/tripdata-partitionBy-PULocationID");
+
+
 
 //        Dataset<Row> mappedParquet = parquet.groupBy("hvfhs_license_num").agg(sum("tips")).alias("sum");
 //
