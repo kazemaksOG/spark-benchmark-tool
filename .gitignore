@@ -6,7 +6,7 @@ output.txt
 compile.sh
 
 # resources are too large to put on gitlab
-resources/
+resources/*
 
 # logs and outputs gather from runs
 results/data

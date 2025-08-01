@@ -252,7 +252,6 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
         String name;
         long userVirtualTime;
-        long userVirtualEndTime;
         long globalVirtualStartTime;
         long globalVirtualEndTime;
         HashMap<Long, Job> jobIdToJob;
@@ -264,7 +263,6 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             this.userVirtualTime = 0;
             this.globalVirtualStartTime = globalVirtualTime;
             this.globalVirtualEndTime = globalVirtualTime;
-            this.userVirtualEndTime = userVirtualTime;
 
             this.jobIdToJob = new HashMap<>();
             this.activeJobs = new TreeSet<>();
@@ -285,7 +283,7 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
             long currentGlobalVirtualTime = globalVirtualTime + (long)((currentTime - previousCurrentTime) * userShare);
             long lastJobGlobalVirtualDeadline = this.globalVirtualEndTime;
             if(lastJobGlobalVirtualDeadline <= currentGlobalVirtualTime) {
-                System.out.println("##### INFO: userVirtualEndtime: " + userVirtualEndTime
+                System.out.println("##### INFO:"
                         + " gloablVirtaulEndtime : " + this.globalVirtualEndTime
                         + " userVirtualTime: " + this.userVirtualTime
                         + " currentGlobalVirtualTime: " + currentGlobalVirtualTime);
@@ -390,20 +388,15 @@ public class  UserClusterFairScheduler implements SchedulableBuilder {
 
             // the first jobs takes the globalVirtualTime from when the user
             // started + all the finished job times combined
-            Job firstJob = jobIterator.next();
-            firstJob.updateGlobalDeadlines(this.globalVirtualStartTime);
-            long currentGlobalVirtualTime = firstJob.getGlobalVirtualDeadline();
-            long lastUserVirtualDeadline = firstJob.userVirtualDeadline;
+            long currentGlobalVirtualTime = this.globalVirtualStartTime;
             // jobs finish one after another, so we chain their deadlines
             while (jobIterator.hasNext()) {
                 Job job = jobIterator.next();
                 job.updateGlobalDeadlines(currentGlobalVirtualTime);
                 currentGlobalVirtualTime = job.getGlobalVirtualDeadline();
-                lastUserVirtualDeadline = job.userVirtualDeadline;
             }
             // keep note of time when all jobs end for this user
             this.globalVirtualEndTime = currentGlobalVirtualTime;
-            this.userVirtualEndTime = lastUserVirtualDeadline;
         }
 
         private void updateJobRuntime(Job currentJob, long time) {
