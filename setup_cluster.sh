@@ -24,12 +24,13 @@ fi
 # Env
 module load prun
 
-# for python evnironment
+# for python evnironment, might need to create it manually if necessary, see readme note for details.
 source $DEPLOYER_HOME/venv/bin/activate
 
 
 
-RESERVATION_ID=$1
+RUN_EXPERIMENTS=$1
+RESERVATION_ID=$2
 
 if [ ! -n "$RESERVATION_ID" ]; then 
     echo "No reservation id passed as argument"
@@ -68,8 +69,13 @@ if [[ "$DEPLOY_OUTPUT" == MASTER_NODE:* ]]; then
     if [ -n "$MASTER_ADDR" ]; then
         MASTER="spark://$MASTER_ADDR:7077"
         PWD=$(pwd)
-        printf "Deployment successful. Performing: \n\n   ssh $MASTER_ADDR\n\n Then: \n\n    cd $PWD \n\n Then: \n\n  source ./run_all_benchmarks.sh $MASTER $RESERVATION_ID &> output.txt\n"
-	ssh "$MASTER_ADDR" "source ~/.bashrc; source ~/.bash_profile; cd \"$PWD\"; pwd; source ./run_all_benchmarks.sh \"$MASTER\" \"$RESERVATION_ID\" &> output.txt"
+
+	if [ "$RUN_EXPERIMENTS" = true ] ; then
+		printf "Deployment successful. Performing: \n\n   ssh $MASTER_ADDR\n\n Then: \n\n    cd $PWD \n\n Then: \n\n  source ./run_all_benchmarks.sh $MASTER $RESERVATION_ID &> output.txt\n"
+		ssh "$MASTER_ADDR" "source ~/.bashrc; source ~/.bash_profile; cd \"$PWD\"; pwd; source ./run_all_benchmarks.sh \"$MASTER\" \"$RESERVATION_ID\" &> output.txt"
+	else
+		printf "Deployment successful. Run: \n\n   ssh $MASTER_ADDR\n\n Then: \n\n    cd $PWD \n\n Then: \n\n  source ./run_all_benchmarks.sh $MASTER $RESERVATION_ID &> output.txt\n"
+	fi
     else
         echo "Error: Master Node URL is empty!"
         return 1
