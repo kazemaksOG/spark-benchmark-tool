@@ -32,7 +32,7 @@ def create_table(args):
         baseline_benches = None 
         if "PARTITIONER" in bench.scheduler:
             baseline_benches = get_benchmarks(args.compare_to + "-P", bench.config)
-            print(f"Getting basline: {args.compare_to + "-P"}")
+            print(f"Getting basline: {args.compare_to} + -P")
         else:
             baseline_benches = get_benchmarks(args.compare_to, bench.config)
             print(f"Getting basline: {args.compare_to}")
