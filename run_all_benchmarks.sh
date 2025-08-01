@@ -10,7 +10,7 @@ RUN_AQE=0 # runs all schedulers with ./configs/base_AQE_config.json config
 # spark configs
 DEPLOY_MODE="client"
 MAIN_CLASS="BenchRunner"
-ITERATIONS=1
+ITERATIONS=3
 
 
 # Paths
@@ -18,7 +18,8 @@ PROJECT_DIR="/var/scratch/$USER/performance_test"
 SCHEDULER_DIR="$PROJECT_DIR/schedulers"
 SPARK_JOB_FILE="$PROJECT_DIR/target/performance_test-1.0-SNAPSHOT.jar"
 
-WORKLOAD_DIR="$PROJECT_DIR/configs/macro"
+# synthetic_workloads, hetero_macro, homo_macro
+WORKLOAD_DIR="$PROJECT_DIR/configs/homo_macro"
 INDIVIDUAL_WORKLOAD_DIR="$PROJECT_DIR/configs/individual"
 COALESCE_WORKLOAD_DIR="$PROJECT_DIR/configs/coalesce"
 
@@ -26,12 +27,10 @@ COALESCE_WORKLOAD_DIR="$PROJECT_DIR/configs/coalesce"
 # scheduler configs to use in benchmarks
 declare -A SCHEDULERS
 
-#SCHEDULERS[CUSTOM_SHORT]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=ShortestFirstSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/ShortestFirstScheduler/target/ShortestFirstScheduler-1.0-SNAPSHOT.jar"
 
+#SCHEDULERS[CUSTOM_RANDOM]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=RandomSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/RandomScheduler/target/RandomScheduler-1.0-SNAPSHOT.jar"
 
-SCHEDULERS[CUSTOM_RANDOM]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=RandomSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/RandomScheduler/target/RandomScheduler-1.0-SNAPSHOT.jar"
-
-SCHEDULERS[CUSTOM_RANDOM_PARTITIONER]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=RandomSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/RandomScheduler/target/RandomScheduler-1.0-SNAPSHOT.jar:$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar:$PROJECT_DIR/partitioners/OraclePartitioner/target/OraclePartitioner-1.0-SNAPSHOT.jar --conf spark.customPerformanceEstimator=OraclePerformanceEstimator.OraclePerformanceEstimator --conf  spark.customPartitioner=OraclePartitioner"
+#SCHEDULERS[CUSTOM_RANDOM_PARTITIONER]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=RandomSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/RandomScheduler/target/RandomScheduler-1.0-SNAPSHOT.jar:$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar:$PROJECT_DIR/partitioners/OraclePartitioner/target/OraclePartitioner-1.0-SNAPSHOT.jar --conf spark.customPerformanceEstimator=OraclePerformanceEstimator.OraclePerformanceEstimator --conf  spark.customPartitioner=OraclePartitioner"
 
 
 SCHEDULERS[CUSTOM_CLUSTERFAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=ClusterFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/ClusterFairScheduler/target/ClusterFairScheduler-1.0-SNAPSHOT.jar:$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar:$PROJECT_DIR/partitioners/OraclePartitioner/target/OraclePartitioner-1.0-SNAPSHOT.jar --conf spark.customPerformanceEstimator=OraclePerformanceEstimator.OraclePerformanceEstimator"
@@ -46,9 +45,9 @@ SCHEDULERS[CUSTOM_USERCLUSTERFAIR_PARTITIONER]="--conf spark.scheduler.mode=CUST
 
 
 
-SCHEDULERS[TRUE_FIFO]="--conf spark.scheduler.mode=CUSTOM --conf  spark.customSchedulerContainer=TrueFifoSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/TrueFifo/target/TrueFifoScheduler-1.0-SNAPSHOT.jar:$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar:$PROJECT_DIR/partitioners/OraclePartitioner/target/OraclePartitioner-1.0-SNAPSHOT.jar --conf spark.customPerformanceEstimator=OraclePerformanceEstimator.OraclePerformanceEstimator"
+#SCHEDULERS[TRUE_FIFO]="--conf spark.scheduler.mode=CUSTOM --conf  spark.customSchedulerContainer=TrueFifoSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/TrueFifo/target/TrueFifoScheduler-1.0-SNAPSHOT.jar:$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar:$PROJECT_DIR/partitioners/OraclePartitioner/target/OraclePartitioner-1.0-SNAPSHOT.jar --conf spark.customPerformanceEstimator=OraclePerformanceEstimator.OraclePerformanceEstimator"
 
-SCHEDULERS[TRUE_FIFO_PARTITIONER]="--conf spark.scheduler.mode=CUSTOM --conf  spark.customSchedulerContainer=TrueFifoSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/TrueFifo/target/TrueFifoScheduler-1.0-SNAPSHOT.jar:$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar:$PROJECT_DIR/partitioners/OraclePartitioner/target/OraclePartitioner-1.0-SNAPSHOT.jar --conf spark.customPerformanceEstimator=OraclePerformanceEstimator.OraclePerformanceEstimator --conf  spark.customPartitioner=OraclePartitioner"
+#SCHEDULERS[TRUE_FIFO_PARTITIONER]="--conf spark.scheduler.mode=CUSTOM --conf  spark.customSchedulerContainer=TrueFifoSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/TrueFifo/target/TrueFifoScheduler-1.0-SNAPSHOT.jar:$PROJECT_DIR/estimators/OraclePerformanceEstimator/target/OraclePerformanceEstimator-1.0-SNAPSHOT.jar:$PROJECT_DIR/partitioners/OraclePartitioner/target/OraclePartitioner-1.0-SNAPSHOT.jar --conf spark.customPerformanceEstimator=OraclePerformanceEstimator.OraclePerformanceEstimator --conf  spark.customPartitioner=OraclePartitioner"
 
 
 SCHEDULERS[CUSTOM_FAIR]="--conf spark.scheduler.mode=CUSTOM --conf spark.customSchedulerContainer=UserFairSchedulerContainer --conf spark.driver.extraClassPath=$SCHEDULER_DIR/UserFairScheduler/target/UserFairScheduler-1.0-SNAPSHOT.jar"
