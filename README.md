@@ -110,7 +110,9 @@ $SPARK_HOME/bin/spark-submit --class "RepartitionTaxiData" --master "local[2]" t
 
 **Note:** if using screen, `ctrl+a ctrl+c` can be used to crate a new window and view the `output.txt` file to track progress 
 
-**Optional:** Can also use `GoogleTraceParser` to parse google traces if different timeframe is needed for the macro-experiment. The source file must be modified and recompiled, then submitted. This will create a csv excerpt of the google trace, which then can be tranformed into a benchmark config file (see results).
+**Note:** This may fail if `setup_cluster.sh` was run before, since it destroys local settings for running Spark on headnode. In that case, either run this on a compute node, or replace the settings to be default.
+
+**Optional:** Can also use `GoogleTraceParser` to parse google traces if different timeframe is needed for the macro-experiment. The source file must be modified and recompiled, then submitted. This will create a csv excerpt of the google trace, which then can be tranformed into a benchmark config file (see Running section).
 
 ```
 curl -L -o google-dataset.zip https://zenodo.org/records/3254540/files/Google_parquet.zip\?download\=1
@@ -138,21 +140,106 @@ source setup_cluster.sh true <OPTIONAL_RESERVATION_ID>
 **Note:** if using screen, `ctrl+a ctrl+c` can be used to crate a new window and view the `output.txt` file to track progress 
 
 
+### Google traces 
+
+Google traces uses the same taxi dataset as input for calculation, but schedules jobs based on the extracted google trace. The heterogeneous and homogeneous macro benchmark configs are already provided for running experiments, but it can also be replaced. This can be done by:
+
+1. Performing the optional step 8. to get the Google trace timeframe.
+
+2. Making the trace into a config. This can be done using `macro_bench_analysis.py`. First adjust all the necessary paths and variables in `globals.py` for `Macro benchmark settings`, and adjust core amount and exectuor amount in `result parsing settings`.
+
+3. Run `macro_bench_analysis.py`, which will generate a config file.
+
+```
+pip3 install -r requirements.txt
+python3 macro_bench_analysis.py
+```
+
+4. move the conifg file into the `configs` folder, create a directory for that file and place it in it, and change `run_all_benchmarks.sh` to run this workload.
+```
+mkdir ../configs/macro_config
+mv config.json ../configs/macro_config
+```
+
+5. Experiements can be run as usual
+
 
 ## Results
-Results can be obtained by running the script in `results/visualize_results.py`. It relies on the output results from the benchmarks and the history server running on localhost to get even data. To setup the running environment:
+Results can be obtained by running the script in `results/visualize_results.py`. It relies on the output results from the benchmarks and the history server running on localhost to get even data. 
 
-1. Get the benchmark output from `$PROJECT_ROOT/target/becnh_outputs` and place them somewhere in the `$PROJECT_ROOT/results` directory. **Note**: Some statistics and visuals depend on BASE runtimes to make calculations. These must be present for the script to work. These are enabled by setting `RUN_INDIVIDUAL=1` in `run_all_benchmarks.sh`.
-2. Change the paths in `visualize_results.py` to reflect that location.
-3. Gather the events from the benchmarks. If using `conf/spark/custom/` when setting up the cluster, the events will be stored in 
+
+**Note: after parsing is done, data is saved in `DATADUMP.data`, which will be reused to save some resources, and also omit the need to turn on the history server. However, if there is a bug in the parsing, it must be deleted to reparse the data**
+### DAS5 setup
+
+1. Source the `master-env.sh`
 ```
-spark.eventLog.dir               /var/scratch/__USER__/eventlogs/
+source master-env.sh
 ```
-4. Setup a local Spark History Server with the extracted event logs. To ensure that no jobs are left out from the analysis, launch it with:
+2. Make python virtual environment and install all dependencies
+
 ```
-SPARK_DAEMON_MEMORY=32g SPARK_DAEMON_JAVA_OPTS="-Dspark.ui.retainedJobs=100000 -Dspark.ui.retainedStages=100000 -Dspark.ui.retainedTasks=10000000" ./school/cese/thesis/spark/sbin/start-history-server.sh
+cd results
+python3 -m venv ./venv
+source ./venv/bin/activate
+python3 -m pip install --upgrade pip # update pip, needed for some dependencies
+pip3 install --user --only-binary=:all: Pillow # Pillow is missing linker files, so have to install only binary
+pip3 install matplotlib 
+pip3 install -r requirements.txt # rest should work normally
+
+```
+
+
+3. Start the spark server 
+```
+bash run_server.sh
+```
+4. Change globals to wanted values. The `RUN_PATH` should point to benchmark output parent directory, by default:
+
+```
+RUN_PATH="../target"
+...
+APPS_URL="http://fs0.das5.cs.vu.nl:18080/api/v1/applications" # local host seems to be unmapped to headnode?
+```
+
+5. Perform necessary analysis.
+
+```
+python3 visualize_results.py --help # to get all possible commands
+```
+
+6. Once done, stop the server 
+
+```
+bash stop_server.sh
+```
+
+### Local setup
+
+1. Gather the event logs (should be in /var/scratch/$USER/eventlogs) and benchmark outputs ($PROJECT_ROOT/target/becnh_outputs) and zip them into a file. `scp` data over to your local machine:
+```
+bash gather_and_clean_results.sh # might have to modify if result paths differ. it also automatically deletes all zipped files
+scp -oProxyJump=<USER>@linux-bastion.tudelft.nl <USER>@fs0.das5.cs.vu.nl:/var/scratch/<USER>/performance_test/results_<DATE>.tar.gz .
+
+```
+2. Unzip this file into a local instance of `spark-benchmark-tool/results/data`.
+
+**Note**: Some statistics and visuals depend on BASE runtimes to make calculations. These must be present for the script to work. These are enabled by setting `RUN_INDIVIDUAL=1` in `run_all_benchmarks.sh`.
+
+2. Change the paths in `globals.py` to reflect that location (`BENCHMARK_PATH`).
+3. Setup a local Spark History Server with the extracted event logs. To ensure that no jobs are left out from the analysis, launch it with:
+```
+SPARK_DAEMON_MEMORY=32g SPARK_DAEMON_JAVA_OPTS="-Dspark.ui.retainedJobs=100000 -Dspark.ui.retainedStages=100000 -Dspark.ui.retainedTasks=10000000" $SPARK_HOME/sbin/start-history-server.sh
 ```
 5. launch the python script with `python3 visualize_results <COMMAND>`
 
 
+### Paper visual and table scripts 
+This section documents the commands to run to get figures for the tables used in the paper/thesis.
+
+```
+TODO
+
+
+
+```
 
