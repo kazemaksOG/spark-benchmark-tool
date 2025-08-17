@@ -7,25 +7,30 @@ CORES_PER_EXEC = 4
 CORES = EXECUTOR_AMOUNT * CORES_PER_EXEC
 FIG_FORMAT = "svg"
 TASK_TRACKING_ENABLED = False
+PAPER_FIGSIZE = (8,5)
+FONT_SIZE=14
 
 # Macro benchmark settings
 
 MACRO_CONFIG="./google_benchmark_500s/macro_benchmarks_hetero.csv"
-SCALING = 2 # Hetero 2, homo 20
-FILTER_LARGE = False# Hetero False, homo True
 
-TIME_FRAME_S = 500
-TIME_SCALE = 1
+# Scaling scales each job runtime by that factor
+SCALING = 2 # For existing benchmarks: Hetero 2, homo 20
+# Filter large filters jobs that are 5x bigger than the median
+FILTER_LARGE = False # For existing benchmarks: Hetero False, homo True
 
-# expected speedup of parallelizing the jobs, usually lower than CORES
+TIME_FRAME_S = 500 # The length of the timeframe, for homo and hetero experiements it is 500
+TIME_SCALE = 1 # The scaler for time, which scales job arrival times by that amount (untested)
+
+# expected speedup of parallelizing the jobs, usually lower than CORES (70% of the cores in the system or even lower, original system had 32)
 PARALLELIZATION_SCALING = 24
 
 
 # paths to benchmarks
 
+BENCHMARK_PATH="./data/homo_benchmark/"
 FILTER_DEFAULT = True
-RUN_PATH="./data/hetero_benchmark_2/target"
-BENCH_PATH=f"{RUN_PATH}/bench_outputs"
+BENCH_PATH=f"{BENCHMARK_PATH}/target/bench_outputs"
 OUTPUT_DIR="./metrics"
 
 # history server address

@@ -20,6 +20,8 @@ import matplotlib.patches as patches
 plt.rcParams['pdf.fonttype'] = 42
 plt.rcParams['ps.fonttype'] = 42
 
+plt.rcParams.update({'font.size': FONT_SIZE})
+
 
 def create_table(args):
 
@@ -452,10 +454,6 @@ def boxplot_deadline(args):
                         continue
 
 
-                    # if FORMAL_NAME[run.scheduler] == "Fair" or FORMAL_NAME[run.scheduler] == "Fair-P":
-                    #     continue
-                    #
-
                     # get start times
                     start_time = min(jobgroup.start for user in run.users for jobgroup in user.jobgroups)
 
@@ -586,14 +584,12 @@ def boxplot_deadline(args):
 
 
 
-        fig_default, ax_default = plt.subplots()
+        fig_default, ax_default = plt.subplots(figsize=PAPER_FIGSIZE)
         labels = []
         for scheduler in all_user_rt.keys():
             if "UJF" in scheduler:
                 continue
 
-            if "Fair" in scheduler:
-                continue
             baseline_benches = None 
             if "PARTITIONER" in scheduler:
                 baseline_benches = all_user_rt["UJF-P"]
@@ -610,6 +606,17 @@ def boxplot_deadline(args):
             ax_default.boxplot(slowdown, positions=[position], widths=0.6)            
             if "-P" in labels[len(labels) - 1]:
                 ax_default.axvline(x=position + 0.5, color='gray', linestyle='--', linewidth=1)
+
+            mean_val = np.median(slowdown)
+            ax_default.text(
+                position - 0.1,              # increased offset to the right
+                mean_val + 0.05,
+                f"{mean_val:.2f}",
+                va="center",
+                ha="left",
+                fontsize=9,
+                color="black"
+            )
 
         ax_default.set_xlabel("Scheduler")
         ax_default.set_ylabel("User proportional slack/violation")
@@ -640,7 +647,7 @@ def plot_and_save_cdf(target, baseline, target_name, base_name, folder, output):
 
     ax.ecdf(target, label=f"{FORMAL_NAME[target_name]}", linestyle=SCHEDULER_LINE[target_name], color=SCHEDULER_COLOR[target_name])
 
-    ax.ecdf(baseline, label=f"{FORMAL_NAME[base_name]}", linestyle=SCHEDULER_LINE[base_name], color=SCHEDULER_COLOR[base_name])
+    ax.ecdf(baseline, label=f"{base_name}")
 
 
     ax.grid(True)
@@ -739,8 +746,8 @@ def cdf(args):
     elif args.change_type == "custom1":
         for config in CONFIGS:
             # for job_type in JOB_TYPES:
-                fig_default, ax_default = plt.subplots()
-                fig_partition, ax_partition = plt.subplots()
+                fig_default, ax_default = plt.subplots(figsize=PAPER_FIGSIZE)
+                fig_partition, ax_partition = plt.subplots(figsize=PAPER_FIGSIZE)
                 empty = True
                 for bench in benches:
                     if config not in bench.config:
@@ -754,9 +761,11 @@ def cdf(args):
                     else:
                         fig = fig_default
                         ax = ax_default
-                    # if bench.scheduler not in args.compare_to:
-                    #     continue
+                    if FORMAL_NAME[bench.scheduler] not in args.compare_to:
+                        continue
                     for run in bench.runs:
+                        
+                        
 
 
                         all_rt = [jobgroup.total_time for user in run.users for jobgroup in user.jobgroups]
@@ -1070,7 +1079,7 @@ def cdf(args):
     elif args.change_type == "custom4":
         comp_user = "user4"
         for config in CONFIGS:
-                fig_default, ax_default = plt.subplots()
+                fig_default, ax_default = plt.subplots(figsize=PAPER_FIGSIZE)
                 empty = True
                 for bench in benches:
                     if config not in bench.config:
@@ -1122,6 +1131,7 @@ def cdf(args):
                 ax_default.set_ylim(ymin=0)
                 ax_default.set_xlim(xmin=0)
 
+                fig_default.tight_layout()
                 if args.show_plot:
                     plt.show()
 

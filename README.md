@@ -237,9 +237,13 @@ SPARK_DAEMON_MEMORY=32g SPARK_DAEMON_JAVA_OPTS="-Dspark.ui.retainedJobs=100000 -
 This section documents the commands to run to get figures for the tables used in the paper/thesis.
 
 ```
-TODO
+# For homogeneous benchmark boxplots 
+python3 visualize_results.py boxplots --change_type=custom1
 
+# Scenario 1 infrequent user eCDFs
+python3 visualize_results.py cdf --change_type custom4 --compare_to "UWFQ;UJF;CFQ;Fair"
 
-
+# Scenario 2 eCDFs
+python3 visualize_results.py cdf --change_type custom1 --compare_to "UWFQ;UJF;CFQ;Fair"
 ```
 
